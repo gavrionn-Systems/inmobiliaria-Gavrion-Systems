@@ -344,7 +344,10 @@ export async function getCrmConfiguration() {
 
   return {
     templates: templates ?? [],
-    eventCounts: {},
+    eventCounts: {
+      pending: 0,
+      failed: 0,
+    },
     integration: {
       metaWebhook: Boolean(
         process.env.META_VERIFY_TOKEN && process.env.META_APP_SECRET
