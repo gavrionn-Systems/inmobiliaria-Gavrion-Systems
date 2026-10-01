@@ -31,5 +31,5 @@
     ".next/dev/types/**/*.ts",
     "**/*.mts"
   ],
-  "exclude": ["node_modules", "tests"]
+  "exclude": ["node_modules", "tests", "**/*.test.ts", "server-only-stub-loader.mjs"]
 }
