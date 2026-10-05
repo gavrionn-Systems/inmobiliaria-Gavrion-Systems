@@ -30,6 +30,8 @@ export default function AdminSidebar({
   siteName,
   userName,
   roleLabel,
+  loginPath,
+  panelPath,
 }: {
   items: readonly NavItem[];
   title: string;
@@ -39,13 +41,16 @@ export default function AdminSidebar({
   siteName: string;
   userName?: string;
   roleLabel?: string;
+  loginPath: string;
+  panelPath: string;
 }) {
   const pathname = usePathname();
+  const visibleHref = (href: string) => `${panelPath}${href.replace(/^\/admin/, "")}`;
 
   return (
     <aside className="w-72 bg-secondary hidden md:flex flex-col sticky top-0 h-screen border-r border-white/10">
       <Link
-        href="/admin"
+        href={panelPath}
         aria-label={siteName}
         className="flex items-center gap-3 px-5 py-6 border-b border-white/10 hover:bg-white/5 transition-colors"
       >
@@ -107,7 +112,7 @@ export default function AdminSidebar({
             return (
               <Link
                 key={item.key}
-                href={item.href}
+                href={visibleHref(item.href)}
                 aria-current={active ? "page" : undefined}
                 className={`group flex items-center gap-3 rounded-xl px-3 py-3 font-label-md text-label-md transition-colors ${
                   active
@@ -141,7 +146,7 @@ export default function AdminSidebar({
             </span>
             <span>Ver sitio público</span>
           </Link>
-          <AdminLogoutButton />
+          <AdminLogoutButton loginPath={loginPath} />
         </div>
       </nav>
     </aside>

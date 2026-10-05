@@ -4,7 +4,6 @@ import Image from "next/image";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { useCallback, useEffect, useRef, useState } from "react";
-import { adminLoginPath } from "@/lib/demo-auth";
 
 type NavItem = { key: string; label: string; href: string; icon?: string };
 
@@ -17,6 +16,8 @@ export default function AdminMobileNav({
   siteName,
   userName,
   roleLabel,
+  loginPath,
+  panelPath,
 }: {
   items: readonly NavItem[];
   title: string;
@@ -26,6 +27,8 @@ export default function AdminMobileNav({
   siteName: string;
   userName?: string;
   roleLabel?: string;
+  loginPath: string;
+  panelPath: string;
 }) {
   const pathname = usePathname();
   const router = useRouter();
@@ -33,6 +36,7 @@ export default function AdminMobileNav({
   const [loggingOut, setLoggingOut] = useState(false);
   const panelRef = useRef<HTMLDivElement>(null);
   const toggleRef = useRef<HTMLButtonElement>(null);
+  const visibleHref = (href: string) => `${panelPath}${href.replace(/^\/admin/, "")}`;
 
   useEffect(() => {
     if (!open) return;
@@ -60,7 +64,7 @@ export default function AdminMobileNav({
   async function logout() {
     setLoggingOut(true);
     await fetch("/api/auth/logout", { method: "POST" });
-    router.push(adminLoginPath());
+    router.push(loginPath);
     router.refresh();
   }
 
@@ -72,7 +76,7 @@ export default function AdminMobileNav({
   return (
     <>
       <div className="md:hidden bg-secondary px-4 py-3 flex items-center justify-between sticky top-0 z-40 border-b border-white/10">
-        <Link href="/admin" aria-label={siteName} className="flex items-center gap-2 min-w-0">
+        <Link href={panelPath} aria-label={siteName} className="flex items-center gap-2 min-w-0">
           <span className="brand-logo-mark brand-logo-mark--sm" aria-hidden="true">
             <span className="brand-logo-disc">
               <Image
@@ -178,7 +182,7 @@ export default function AdminMobileNav({
           {items.map((item) => (
             <Link
               key={item.key}
-              href={item.href}
+              href={visibleHref(item.href)}
               aria-current={isActive(item.href) ? "page" : undefined}
               onClick={() => setOpen(false)}
               className={`flex items-center gap-3 px-6 py-3 font-label-md text-label-md transition-colors ${
