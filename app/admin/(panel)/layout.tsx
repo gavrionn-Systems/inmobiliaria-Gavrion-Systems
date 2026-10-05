@@ -6,6 +6,7 @@ import {
   ADMIN_ONLY_NAV_KEYS,
   ROLE_LABELS,
   adminLoginPath,
+  adminPanelSlug,
   isAdminRole,
   isTemplateAdminRole,
 } from "@/lib/demo-auth";
@@ -34,14 +35,22 @@ export default async function AdminPanelLayout({
   const nav = isTemplateAdminRole(role)
     ? adminNav.filter((item) => item.key === "configuracion")
     : isAdminRole(role)
-      ? adminNav
-      : adminNav.filter((item) => !adminOnlyNav.has(item.key));
+      ? adminNav.filter(
+          (item) =>
+            item.key === "dashboard" || settings.adminMenuVisibility[item.key as keyof typeof settings.adminMenuVisibility]
+        )
+      : adminNav.filter(
+          (item) =>
+            (item.key === "dashboard" || settings.adminMenuVisibility[item.key as keyof typeof settings.adminMenuVisibility]) &&
+            !adminOnlyNav.has(item.key)
+        );
   const panelTitle = isTemplateAdminRole(role)
     ? "Configuración de plantilla"
     : isAdminRole(role)
       ? "Panel Admin"
       : "Panel del equipo";
   const roleLabel = ROLE_LABELS[role] ?? role;
+  const panelPath = `/${adminPanelSlug()}`;
 
   return (
     <div className="min-h-screen bg-surface flex">
@@ -54,6 +63,8 @@ export default async function AdminPanelLayout({
         siteName={settings.name}
         userName={session.user.name}
         roleLabel={roleLabel}
+        loginPath={adminLoginPath()}
+        panelPath={panelPath}
       />
 
       <div className="flex-1 flex flex-col min-w-0">
@@ -67,6 +78,8 @@ export default async function AdminPanelLayout({
           siteName={settings.name}
           userName={session?.user.name}
           roleLabel={roleLabel}
+          loginPath={adminLoginPath()}
+          panelPath={panelPath}
         />
 
         <main className="flex-1 p-4 md:p-6 lg:p-10">{children}</main>

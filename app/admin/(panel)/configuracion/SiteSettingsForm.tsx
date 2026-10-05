@@ -32,6 +32,17 @@ const editorSections = [
   { id: "indexing", label: "Indexación" },
 ] as const;
 
+const adminMenuOptions = [
+  { key: "crm", label: "CRM", description: "Contactos, inbox, pipeline, calendario y tareas." },
+  { key: "propiedades", label: "Propiedades", description: "Catálogo, creación y edición de propiedades." },
+  { key: "solicitudes", label: "Solicitudes", description: "Solicitudes recibidas desde el sitio público." },
+  { key: "equipo", label: "Equipo", description: "Usuarios y agentes de la inmobiliaria." },
+  { key: "categorias", label: "Categorías", description: "Tipos y categorías del catálogo." },
+  { key: "configuracion", label: "Configuración", description: "Configuración del sitio y del panel administrativo." },
+] as const;
+
+type AdminMenuKey = (typeof adminMenuOptions)[number]["key"];
+
 type EditorSectionId = (typeof editorSections)[number]["id"];
 
 function Field({
@@ -96,6 +107,16 @@ export default function SiteSettingsForm({
       aboutValues: current.aboutValues.map((row, i) =>
         i === index ? { ...row, [key]: value } : row
       ),
+    }));
+  }
+
+  function setAdminMenuVisibility(key: AdminMenuKey, visible: boolean) {
+    setValues((current) => ({
+      ...current,
+      adminMenuVisibility: {
+        ...current.adminMenuVisibility,
+        [key]: visible,
+      },
     }));
   }
 
@@ -561,6 +582,33 @@ export default function SiteSettingsForm({
           <Field label="Etiqueta bajo el logo">
             <input value={values.adminPanelLabel} onChange={(e) => set("adminPanelLabel", e.target.value)} className={fieldClass} />
           </Field>
+        </div>
+        <div className="border-t border-outline-variant pt-4 flex flex-col gap-3">
+          <div>
+            <h3 className="font-headline-md text-headline-md text-on-surface">Módulos visibles para la empresa</h3>
+            <p className="font-body-md text-body-md text-secondary mt-1">
+              Seleccione qué opciones aparecerán en el menú del administrador de la empresa. El Dashboard siempre permanece visible.
+            </p>
+          </div>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+            {adminMenuOptions.map((option) => (
+              <label
+                key={option.key}
+                className="flex items-start gap-3 rounded-lg border border-outline-variant bg-surface px-4 py-3 cursor-pointer hover:border-primary-container transition-colors"
+              >
+                <input
+                  type="checkbox"
+                  checked={values.adminMenuVisibility[option.key]}
+                  onChange={(e) => setAdminMenuVisibility(option.key, e.target.checked)}
+                  className="mt-1 h-4 w-4 accent-[var(--color-primary)]"
+                />
+                <span className="min-w-0">
+                  <span className="block font-label-md text-label-md text-on-surface">{option.label}</span>
+                  <span className="block font-label-sm text-label-sm text-secondary mt-0.5">{option.description}</span>
+                </span>
+              </label>
+            ))}
+          </div>
         </div>
       </section>
 

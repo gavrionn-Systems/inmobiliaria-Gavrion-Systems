@@ -62,6 +62,7 @@ export default async function AdminConfiguracionPage() {
     adminWelcomeTitle: settings.adminWelcomeTitle,
     adminWelcomeSubtitle: settings.adminWelcomeSubtitle,
     adminMenuLabel: settings.adminMenuLabel,
+    adminMenuVisibility: settings.adminMenuVisibility,
     heroTitle: settings.heroTitle,
     heroSubtitle: settings.heroSubtitle,
     heroImageUrl: settings.heroImageUrl,
