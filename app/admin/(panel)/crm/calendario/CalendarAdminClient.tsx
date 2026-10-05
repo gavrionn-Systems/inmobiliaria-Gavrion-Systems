@@ -18,6 +18,54 @@ type Appt = {
 };
 
 type Property = { id: string; title: string; slug: string };
+type WorkHoursDay = { start: string; end: string } | null;
+type WorkHours = {
+  mon: WorkHoursDay;
+  tue: WorkHoursDay;
+  wed: WorkHoursDay;
+  thu: WorkHoursDay;
+  fri: WorkHoursDay;
+  sat: WorkHoursDay;
+  sun: WorkHoursDay;
+};
+
+function zonedParts(iso: string | Date) {
+  return Object.fromEntries(
+    new Intl.DateTimeFormat("en-CA", {
+      timeZone: SITE_TIMEZONE,
+      hourCycle: "h23",
+      year: "numeric",
+      month: "2-digit",
+      day: "2-digit",
+      hour: "2-digit",
+      minute: "2-digit",
+    })
+      .formatToParts(typeof iso === "string" ? new Date(iso) : iso)
+      .map((part) => [part.type, part.value])
+  );
+}
+
+function localDateKey(iso: string | Date): string {
+  const parts = zonedParts(iso);
+  return `${parts.year}-${parts.month}-${parts.day}`;
+}
+
+function localHour(iso: string): number {
+  return Number(zonedParts(iso).hour);
+}
+
+function todayInSiteTimezone(): string {
+  return localDateKey(new Date());
+}
+
+function dayKey(dateStr: string): keyof WorkHours {
+  const day = new Date(`${dateStr}T12:00:00.000Z`).getUTCDay();
+  return (["sun", "mon", "tue", "wed", "thu", "fri", "sat"] as const)[day];
+}
+
+function toHour(value: string): number {
+  return Number(value.split(":")[0]);
+}
 
 function fmt(iso: string): string {
   return new Date(iso).toLocaleString(SITE_LOCALE, {
@@ -34,41 +82,28 @@ function fmt(iso: string): string {
 export default function CalendarAdminClient({
   initialAppointments,
   properties,
+  workHours,
+  bufferMinutes,
 }: {
   initialAppointments: Appt[];
   properties: Property[];
+  workHours: WorkHours;
+  bufferMinutes: number;
 }) {
   const [appts, setAppts] = useState<Appt[]>(initialAppointments);
   const [filter, setFilter] = useState<string>("todos");
-  const [selectedDate, setSelectedDate] = useState<string>(new Date().toISOString().slice(0, 10));
+  const [selectedDate, setSelectedDate] = useState<string>(todayInSiteTimezone);
   const [pending, startTransition] = useTransition();
   const [msg, setMsg] = useState<string | null>(null);
 
   const filtered = useMemo(() => {
     let list = appts;
     if (filter !== "todos") list = list.filter((a) => a.status === filter);
-    // filter by selectedDate if not "todos" date
     if (selectedDate) {
-      list = list.filter((a) => a.starts_at.slice(0, 10) === new Date(new Date(selectedDate + "T12:00:00").getTime() + 6 * 3600000).toISOString().slice(0, 10) || true);
-      // simpler: compare local date
-      list = appts.filter((a) => {
-        const local = new Date(new Date(a.starts_at).getTime() - 6 * 3600000).toISOString().slice(0, 10);
-        return filter === "todos" ? true : a.status === filter;
-      });
+      list = list.filter((a) => localDateKey(a.starts_at) === selectedDate);
     }
     return list;
   }, [appts, filter, selectedDate]);
-
-  // For display: group by date local
-  const byDate = useMemo(() => {
-    const map = new Map<string, Appt[]>();
-    for (const a of filtered) {
-      const localDate = new Date(new Date(a.starts_at).getTime() - 6 * 3600000).toISOString().slice(0, 10);
-      if (!map.has(localDate)) map.set(localDate, []);
-      map.get(localDate)!.push(a);
-    }
-    return Array.from(map.entries()).sort((a, b) => a[0].localeCompare(b[0]));
-  }, [filtered]);
 
   async function setStatus(id: string, status: string) {
     setMsg(null);
@@ -112,7 +147,7 @@ export default function CalendarAdminClient({
           <option value="cancelada">Canceladas</option>
         </select>
         <span className="font-body-md text-body-md text-secondary text-sm">
-          {filtered.length} citas · Intervalo 60 min entre reuniones
+          {filtered.length} citas · Intervalo {bufferMinutes} min entre reuniones
         </span>
       </div>
 
@@ -170,21 +205,25 @@ export default function CalendarAdminClient({
             Calendario ({SITE_TIMEZONE}) — {selectedDate}
           </h3>
 
-          {/* Simple day view timeline 08-17 */}
+          {/* Vista del día según el horario configurado */}
           <div className="space-y-2">
-            {Array.from({ length: 10 }).map((_, idx) => {
-              const hour = 8 + idx;
+            {(() => {
+              const hours = workHours[dayKey(selectedDate)];
+              if (!hours) return [];
+              const start = toHour(hours.start);
+              const end = toHour(hours.end);
+              return Array.from({ length: Math.max(0, end - start) }).map((_, idx) => {
+              const hour = start + idx;
               const slotLabel = `${String(hour).padStart(2, "0")}:00`;
               const slotAppts = filtered.filter((a) => {
-                const localHour = new Date(new Date(a.starts_at).getTime() - 6 * 3600000).getUTCHours();
-                return localHour === hour;
+                return localHour(a.starts_at) === hour;
               });
               return (
                 <div key={hour} className="flex gap-3">
                   <span className="w-14 font-label-sm text-label-sm text-secondary text-right pt-2">{slotLabel}</span>
                   <div className="flex-1 min-h-12 bg-surface-container-low rounded border border-outline-variant/50 p-1 flex flex-wrap gap-1">
                     {slotAppts.length === 0 ? (
-                      <span className="font-body-md text-body-md text-secondary/50 text-xs px-2 py-2">— libre (60 min buffer)</span>
+                      <span className="font-body-md text-body-md text-secondary/50 text-xs px-2 py-2">— libre ({bufferMinutes} min buffer)</span>
                     ) : (
                       slotAppts.map((a) => (
                         <span
@@ -206,7 +245,8 @@ export default function CalendarAdminClient({
                   </div>
                 </div>
               );
-            })}
+              });
+            })()}
           </div>
 
           {/* List table */}

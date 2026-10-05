@@ -2,13 +2,15 @@ import Link from "next/link";
 import { getDashboardStats } from "@/lib/admin-queries";
 import { getSession } from "@/lib/auth";
 import { isAdminRole } from "@/lib/demo-auth";
+import { getSiteSettings } from "@/lib/site-settings";
 
 export default async function AdminDashboardPage(props: {
   searchParams?: Promise<{ error?: string }>;
 }) {
-  const [stats, session] = await Promise.all([
+  const [stats, session, settings] = await Promise.all([
     getDashboardStats(),
     getSession(),
+    getSiteSettings(),
   ]);
   const isAdmin = isAdminRole(session?.user.role ?? "agente");
   const searchParams = props.searchParams ? await props.searchParams : undefined;
@@ -72,10 +74,12 @@ export default async function AdminDashboardPage(props: {
       )}
       <header className="mb-8">
         <h1 className="font-headline-lg text-headline-lg-mobile md:text-headline-lg text-on-surface mb-1">
-          {isAdmin ? "Panel de administración" : "Panel del equipo"}
+          {isAdmin ? settings.adminWelcomeTitle : "Panel del equipo"}
         </h1>
         <p className="font-body-md text-body-md text-secondary">
-          Bienvenido de vuelta — aquí está el estado de su catálogo.
+          {isAdmin
+            ? settings.adminWelcomeSubtitle
+            : "Bienvenido de vuelta — aquí está el estado de su catálogo."}
         </p>
       </header>
 

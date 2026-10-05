@@ -28,11 +28,11 @@ export default async function AdminLoginPage() {
             className="h-10 w-10 object-contain"
           />
           <h1 className="font-headline-md text-headline-md text-on-surface">
-            Panel de Administración
+            {settings.adminLoginTitle}
           </h1>
         </div>
         <p className="font-body-md text-body-md text-secondary mb-6 text-center">
-          Ingrese sus credenciales para acceder al panel.
+          {settings.adminLoginSubtitle}
         </p>
         <AdminLoginForm />
       </div>

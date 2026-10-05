@@ -1,5 +1,6 @@
 import { authorize } from "@/lib/auth";
 import { createAdminClient } from "@/lib/supabase/admin";
+import { getSiteSchedule } from "@/lib/schedule";
 import CalendarAdminClient from "./CalendarAdminClient";
 
 export const dynamic = "force-dynamic";
@@ -19,6 +20,7 @@ export default async function CalendarioPage() {
     .from("properties")
     .select("id, title, slug")
     .limit(50);
+  const schedule = await getSiteSchedule();
 
   return (
     <div className="space-y-6">
@@ -40,6 +42,8 @@ export default async function CalendarioPage() {
       <CalendarAdminClient
         initialAppointments={(appointments ?? []) as never}
         properties={(properties ?? []) as never}
+        workHours={schedule.work_hours}
+        bufferMinutes={schedule.buffer_minutes}
       />
     </div>
   );

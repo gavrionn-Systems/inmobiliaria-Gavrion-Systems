@@ -14,6 +14,26 @@ const IMAGE_MAX_BYTES = 5 * 1024 * 1024;
 const fieldClass =
   "bg-surface rounded border border-outline-variant px-3 py-2.5 font-body-md text-body-md text-on-surface placeholder:text-secondary outline-none focus:border-primary w-full";
 
+const editorSections = [
+  { id: "identity", label: "Identidad" },
+  { id: "contact", label: "Contacto" },
+  { id: "location", label: "Ubicación" },
+  { id: "social", label: "Redes" },
+  { id: "hero", label: "Portada" },
+  { id: "content", label: "Contenido" },
+  { id: "admin", label: "Administración" },
+  { id: "theme", label: "Colores" },
+  { id: "about", label: "Nosotros" },
+  { id: "agent", label: "Agente" },
+  { id: "search", label: "Buscador" },
+  { id: "performance", label: "Rendimiento" },
+  { id: "cache", label: "Caché" },
+  { id: "experience", label: "Búsqueda" },
+  { id: "indexing", label: "Indexación" },
+] as const;
+
+type EditorSectionId = (typeof editorSections)[number]["id"];
+
 function Field({
   label,
   hint,
@@ -48,6 +68,7 @@ export default function SiteSettingsForm({
   const [uploadingLogo, setUploadingLogo] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState<string | null>(null);
+  const [activeSection, setActiveSection] = useState<EditorSectionId>("identity");
 
   function set<K extends keyof SiteSettingsInput>(
     key: K,
@@ -177,7 +198,7 @@ export default function SiteSettingsForm({
   }
 
   return (
-    <form onSubmit={onSubmit} className="max-w-3xl flex flex-col gap-6">
+    <form onSubmit={onSubmit} className="max-w-5xl flex flex-col gap-6">
       {error ? (
         <p
           role="alert"
@@ -201,7 +222,32 @@ export default function SiteSettingsForm({
         Un abogado o el cliente deben confirmarlos antes del lanzamiento.
       </p>
 
-      <section className="bg-surface-container-low rounded-lg border border-outline-variant p-6 flex flex-col gap-4">
+      <nav
+        aria-label="Secciones de configuración"
+        className="sticky top-0 z-10 -mx-1 overflow-x-auto rounded-lg border border-outline-variant bg-surface-container-low p-1 shadow-sm"
+      >
+        <div role="tablist" className="flex min-w-max gap-1">
+          {editorSections.map((section) => (
+            <button
+              key={section.id}
+              type="button"
+              role="tab"
+              aria-selected={activeSection === section.id}
+              aria-controls={`site-settings-${section.id}`}
+              onClick={() => setActiveSection(section.id)}
+              className={`rounded-md px-4 py-2.5 font-label-md text-label-md whitespace-nowrap transition-colors ${
+                activeSection === section.id
+                  ? "bg-primary text-on-primary shadow-sm"
+                  : "text-secondary hover:bg-surface hover:text-on-surface"
+              }`}
+            >
+              {section.label}
+            </button>
+          ))}
+        </div>
+      </nav>
+
+      <section id="site-settings-identity" role="tabpanel" hidden={activeSection !== "identity"} className="bg-surface-container-low rounded-lg border border-outline-variant p-6 flex flex-col gap-4">
         <h2 className="font-headline-md text-headline-md text-on-surface">
           Identidad
         </h2>
@@ -270,7 +316,7 @@ export default function SiteSettingsForm({
         ) : null}
       </section>
 
-      <section className="bg-surface-container-low rounded-lg border border-outline-variant p-6 flex flex-col gap-4">
+      <section id="site-settings-contact" role="tabpanel" hidden={activeSection !== "contact"} className="bg-surface-container-low rounded-lg border border-outline-variant p-6 flex flex-col gap-4">
         <h2 className="font-headline-md text-headline-md text-on-surface">
           Contacto
         </h2>
@@ -331,7 +377,28 @@ export default function SiteSettingsForm({
         </Field>
       </section>
 
-      <section className="bg-surface-container-low rounded-lg border border-outline-variant p-6 flex flex-col gap-4">
+      <section id="site-settings-location" role="tabpanel" hidden={activeSection !== "location"} className="bg-surface-container-low rounded-lg border border-outline-variant p-6 flex flex-col gap-4">
+        <h2 className="font-headline-md text-headline-md text-on-surface flex items-center gap-2">
+          <span aria-hidden="true" className="material-symbols-outlined text-primary">location_on</span>
+          Ubicación
+        </h2>
+        <p className="font-body-md text-body-md text-secondary">
+          Estos datos se muestran en Contacto, el pie de página y los datos estructurados del sitio.
+        </p>
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <Field label="Ciudad o municipio">
+            <input value={values.city} onChange={(e) => set("city", e.target.value)} className={fieldClass} />
+          </Field>
+          <Field label="País">
+            <input value={values.country} onChange={(e) => set("country", e.target.value)} className={fieldClass} />
+          </Field>
+        </div>
+        <Field label="Enlace de Google Maps" hint="Pegue el enlace de la ubicación de la oficina. Se abrirá al hacer clic en la dirección.">
+          <input type="url" value={values.mapUrl} onChange={(e) => set("mapUrl", e.target.value)} className={fieldClass} placeholder="https://maps.google.com/..." />
+        </Field>
+      </section>
+
+      <section id="site-settings-social" role="tabpanel" hidden={activeSection !== "social"} className="bg-surface-container-low rounded-lg border border-outline-variant p-6 flex flex-col gap-4">
         <h2 className="font-headline-md text-headline-md text-on-surface">
           Redes sociales
         </h2>
@@ -355,7 +422,7 @@ export default function SiteSettingsForm({
         </Field>
       </section>
 
-      <section className="bg-surface-container-low rounded-lg border border-outline-variant p-6 flex flex-col gap-4">
+      <section id="site-settings-hero" role="tabpanel" hidden={activeSection !== "hero"} className="bg-surface-container-low rounded-lg border border-outline-variant p-6 flex flex-col gap-4">
         <h2 className="font-headline-md text-headline-md text-on-surface">
           Portada (inicio)
         </h2>
@@ -420,7 +487,7 @@ export default function SiteSettingsForm({
         </Field>
       </section>
 
-      <section className="bg-surface-container-low rounded-lg border border-outline-variant p-6 flex flex-col gap-4">
+      <section id="site-settings-content" role="tabpanel" hidden={activeSection !== "content"} className="bg-surface-container-low rounded-lg border border-outline-variant p-6 flex flex-col gap-4">
         <h2 className="font-headline-md text-headline-md text-on-surface">
           Contenido del sitio
         </h2>
@@ -461,7 +528,67 @@ export default function SiteSettingsForm({
         <Field label="Subtítulo de contacto"><textarea rows={3} value={values.contactSubtitle} onChange={(e) => set("contactSubtitle", e.target.value)} className={`${fieldClass} resize-y`} /></Field>
       </section>
 
-      <section className="bg-surface-container-low rounded-lg border border-outline-variant p-6 flex flex-col gap-4">
+      <section id="site-settings-admin" role="tabpanel" hidden={activeSection !== "admin"} className="bg-surface-container-low rounded-lg border border-outline-variant p-6 flex flex-col gap-4">
+        <h2 className="font-headline-md text-headline-md text-on-surface flex items-center gap-2">
+          <span aria-hidden="true" className="material-symbols-outlined text-primary">admin_panel_settings</span>
+          Editar vista administrativa
+        </h2>
+        <p className="font-body-md text-body-md text-secondary">
+          Personalice los textos que verá el administrador de la empresa. El nombre,
+          logo e identidad visual se comparten automáticamente con el sitio público.
+        </p>
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <Field label="Título del inicio administrativo">
+            <input value={values.adminWelcomeTitle} onChange={(e) => set("adminWelcomeTitle", e.target.value)} className={fieldClass} />
+          </Field>
+          <Field label="Etiqueta del menú">
+            <input value={values.adminMenuLabel} onChange={(e) => set("adminMenuLabel", e.target.value)} className={fieldClass} />
+          </Field>
+        </div>
+        <Field label="Descripción del inicio administrativo">
+          <textarea rows={3} value={values.adminWelcomeSubtitle} onChange={(e) => set("adminWelcomeSubtitle", e.target.value)} className={`${fieldClass} min-h-24 resize-y`} />
+        </Field>
+        <div className="border-t border-outline-variant pt-4 flex flex-col gap-4">
+          <h3 className="font-headline-md text-headline-md text-on-surface">Acceso al panel</h3>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <Field label="Título de inicio de sesión">
+              <input value={values.adminLoginTitle} onChange={(e) => set("adminLoginTitle", e.target.value)} className={fieldClass} />
+            </Field>
+            <Field label="Texto de inicio de sesión">
+              <input value={values.adminLoginSubtitle} onChange={(e) => set("adminLoginSubtitle", e.target.value)} className={fieldClass} />
+            </Field>
+          </div>
+          <Field label="Etiqueta bajo el logo">
+            <input value={values.adminPanelLabel} onChange={(e) => set("adminPanelLabel", e.target.value)} className={fieldClass} />
+          </Field>
+        </div>
+      </section>
+
+      <section id="site-settings-theme" role="tabpanel" hidden={activeSection !== "theme"} className="bg-surface-container-low rounded-lg border border-outline-variant p-6 flex flex-col gap-4">
+        <h2 className="font-headline-md text-headline-md text-on-surface flex items-center gap-2">
+          <span aria-hidden="true" className="material-symbols-outlined text-primary">palette</span>
+          Colores de la plantilla
+        </h2>
+        <p className="font-body-md text-body-md text-secondary">
+          La paleta se aplica al sitio público, al login y al panel administrativo. Use colores con buen contraste para conservar la legibilidad.
+        </p>
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+          <Field label="Color principal" hint="Botones, enlaces y estados activos.">
+            <input type="color" value={values.primaryColor} onChange={(e) => set("primaryColor", e.target.value)} className="h-12 w-full rounded border border-outline-variant bg-surface p-1 cursor-pointer" />
+          </Field>
+          <Field label="Color de acento" hint="Badges, indicadores y destacados.">
+            <input type="color" value={values.accentColor} onChange={(e) => set("accentColor", e.target.value)} className="h-12 w-full rounded border border-outline-variant bg-surface p-1 cursor-pointer" />
+          </Field>
+          <Field label="Color del panel administrativo" hint="Menú lateral y navegación interna.">
+            <input type="color" value={values.adminColor} onChange={(e) => set("adminColor", e.target.value)} className="h-12 w-full rounded border border-outline-variant bg-surface p-1 cursor-pointer" />
+          </Field>
+          <Field label="Color de fondo" hint="Fondo general del sitio y del panel.">
+            <input type="color" value={values.backgroundColor} onChange={(e) => set("backgroundColor", e.target.value)} className="h-12 w-full rounded border border-outline-variant bg-surface p-1 cursor-pointer" />
+          </Field>
+        </div>
+      </section>
+
+      <section id="site-settings-about" role="tabpanel" hidden={activeSection !== "about"} className="bg-surface-container-low rounded-lg border border-outline-variant p-6 flex flex-col gap-4">
         <h2 className="font-headline-md text-headline-md text-on-surface">
           Nosotros
         </h2>
@@ -564,7 +691,7 @@ export default function SiteSettingsForm({
         </div>
       </section>
 
-      <section className="bg-surface-container-low rounded-lg border border-outline-variant p-6 flex flex-col gap-4">
+      <section id="site-settings-agent" role="tabpanel" hidden={activeSection !== "agent"} className="bg-surface-container-low rounded-lg border border-outline-variant p-6 flex flex-col gap-4">
         <h2 className="font-headline-md text-headline-md text-on-surface">
           Agente por defecto
         </h2>
@@ -591,7 +718,7 @@ export default function SiteSettingsForm({
         </div>
       </section>
 
-      <section className="bg-surface-container-low rounded-lg border border-outline-variant p-6 flex flex-col gap-4">
+      <section id="site-settings-search" role="tabpanel" hidden={activeSection !== "search"} className="bg-surface-container-low rounded-lg border border-outline-variant p-6 flex flex-col gap-4">
         <h2 className="font-headline-md text-headline-md text-on-surface">
           Buscador — rango de precio
         </h2>
@@ -637,7 +764,7 @@ export default function SiteSettingsForm({
         </div>
       </section>
 
-      <section className="bg-surface-container-low rounded-lg border border-outline-variant p-6 flex flex-col gap-4">
+      <section id="site-settings-performance" role="tabpanel" hidden={activeSection !== "performance"} className="bg-surface-container-low rounded-lg border border-outline-variant p-6 flex flex-col gap-4">
         <h2 className="font-headline-md text-headline-md text-on-surface flex items-center gap-2">
           <span aria-hidden="true" className="material-symbols-outlined text-primary">speed</span>
           Catálogo y rendimiento
@@ -717,7 +844,7 @@ export default function SiteSettingsForm({
         </div>
       </section>
 
-      <section className="bg-surface-container-low rounded-lg border border-outline-variant p-6 flex flex-col gap-4">
+      <section id="site-settings-cache" role="tabpanel" hidden={activeSection !== "cache"} className="bg-surface-container-low rounded-lg border border-outline-variant p-6 flex flex-col gap-4">
         <h2 className="font-headline-md text-headline-md text-on-surface flex items-center gap-2">
           <span aria-hidden="true" className="material-symbols-outlined text-primary">cached</span>
           Caché e ISR
@@ -762,7 +889,7 @@ export default function SiteSettingsForm({
         </div>
       </section>
 
-      <section className="bg-surface-container-low rounded-lg border border-outline-variant p-6 flex flex-col gap-4">
+      <section id="site-settings-experience" role="tabpanel" hidden={activeSection !== "experience"} className="bg-surface-container-low rounded-lg border border-outline-variant p-6 flex flex-col gap-4">
         <h2 className="font-headline-md text-headline-md text-on-surface flex items-center gap-2">
           <span aria-hidden="true" className="material-symbols-outlined text-primary">tune</span>
           Experiencia de búsqueda
@@ -796,7 +923,7 @@ export default function SiteSettingsForm({
         </div>
       </section>
 
-      <section className="bg-surface-container-low rounded-lg border border-outline-variant p-6 flex flex-col gap-4">
+      <section id="site-settings-indexing" role="tabpanel" hidden={activeSection !== "indexing"} className="bg-surface-container-low rounded-lg border border-outline-variant p-6 flex flex-col gap-4">
         <h2 className="font-headline-md text-headline-md text-on-surface">
           Indexación
         </h2>

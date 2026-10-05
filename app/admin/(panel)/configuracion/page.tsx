@@ -45,10 +45,23 @@ export default async function AdminConfiguracionPage() {
     phone: settings.phone,
     addressLine1: settings.address.line1,
     addressLine2: settings.address.line2,
+    city: settings.address.city,
+    country: settings.address.country,
+    mapUrl: settings.mapUrl,
+    primaryColor: settings.primaryColor,
+    accentColor: settings.accentColor,
+    adminColor: settings.adminColor,
+    backgroundColor: settings.backgroundColor,
     whatsapp: settings.whatsapp,
     instagram: settings.social.instagram,
     facebook: settings.social.facebook,
     hours: settings.hours,
+    adminLoginTitle: settings.adminLoginTitle,
+    adminLoginSubtitle: settings.adminLoginSubtitle,
+    adminPanelLabel: settings.adminPanelLabel,
+    adminWelcomeTitle: settings.adminWelcomeTitle,
+    adminWelcomeSubtitle: settings.adminWelcomeSubtitle,
+    adminMenuLabel: settings.adminMenuLabel,
     heroTitle: settings.heroTitle,
     heroSubtitle: settings.heroSubtitle,
     heroImageUrl: settings.heroImageUrl,
@@ -100,8 +113,8 @@ export default async function AdminConfiguracionPage() {
           Configuración
         </h1>
         <p className="font-body-md text-body-md text-secondary">
-          Identidad pública de la inmobiliaria: logo, contacto, Nosotros,
-          portada, catálogo, rendimiento e indexación — todo sin tocar código.
+          Identidad pública y experiencia administrativa de la inmobiliaria:
+          logo, contenido, panel interno y configuración — todo sin tocar código.
         </p>
       </header>
       <SiteSettingsForm initial={initial} />
