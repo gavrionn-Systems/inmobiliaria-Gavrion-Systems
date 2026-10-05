@@ -111,19 +111,19 @@ export default async function NosotrosPage() {
             {values.map((value) => (
               <div
                 key={value.title}
-                className="flex items-start gap-4 bg-surface-container-low rounded-lg p-5"
+                className="grid grid-cols-[3.25rem_1fr] items-start gap-4 bg-surface-container-low rounded-xl border border-outline-variant/60 p-5 md:p-6"
               >
                 <span
                   aria-hidden="true"
-                  className="material-symbols-outlined text-primary"
+                  className="material-symbols-outlined flex h-12 w-12 items-center justify-center rounded-full bg-primary-container text-on-primary-container text-2xl"
                 >
                   {value.icon}
                 </span>
-                <div>
-                  <p className="font-headline-md text-headline-md text-on-surface mb-1">
+                <div className="min-w-0 pt-0.5">
+                  <p className="font-headline-md text-headline-md text-on-surface mb-2">
                     {value.title}
                   </p>
-                  <p className="font-body-md text-body-md text-secondary">
+                  <p className="font-body-md text-body-md text-secondary leading-relaxed">
                     {value.description}
                   </p>
                 </div>
