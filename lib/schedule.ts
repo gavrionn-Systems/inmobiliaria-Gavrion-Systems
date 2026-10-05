@@ -60,8 +60,51 @@ function toMinutes(time: string): number {
   return h * 60 + m;
 }
 
+function timeZoneOffsetMinutes(date: Date): number {
+  const value = new Intl.DateTimeFormat("en-US", {
+    timeZone: SITE_TIMEZONE,
+    timeZoneName: "shortOffset",
+  })
+    .formatToParts(date)
+    .find((part) => part.type === "timeZoneName")?.value ?? "GMT";
+  const match = /^GMT(?:([+-])(\d{1,2})(?::(\d{2}))?)?$/.exec(value);
+  if (!match || !match[1]) return 0;
+  const minutes = Number(match[2]) * 60 + Number(match[3] ?? 0);
+  return match[1] === "+" ? minutes : -minutes;
+}
+
+/** Convierte una fecha y hora local de la instalación a UTC respetando su zona horaria. */
+function localDateTimeToUTC(dateStr: string, time: string): string {
+  const guess = new Date(`${dateStr}T${time}:00.000Z`);
+  const offset = timeZoneOffsetMinutes(guess);
+  return new Date(guess.getTime() - offset * 60000).toISOString();
+}
+
+function addCalendarDays(dateStr: string, days: number): string {
+  const date = new Date(`${dateStr}T12:00:00.000Z`);
+  date.setUTCDate(date.getUTCDate() + days);
+  return date.toISOString().slice(0, 10);
+}
+
+function localDateParts(date: Date): { dateStr: string; minutes: number } {
+  const parts = new Intl.DateTimeFormat("en-CA", {
+    timeZone: SITE_TIMEZONE,
+    hourCycle: "h23",
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+    hour: "2-digit",
+    minute: "2-digit",
+  }).formatToParts(date);
+  const values = Object.fromEntries(parts.map((part) => [part.type, part.value]));
+  return {
+    dateStr: `${values.year}-${values.month}-${values.day}`,
+    minutes: Number(values.hour) * 60 + Number(values.minute),
+  };
+}
+
 export function getDayKey(date: Date): keyof WorkHours {
-  const d = date.getDay(); // 0 Sun
+  const d = date.getUTCDay(); // 0 Sun; callers pass a UTC-neutral date
   const map: Record<number, keyof WorkHours> = {
     0: "sun",
     1: "mon",
@@ -81,35 +124,23 @@ export function generateSlotsForDate(
   duration: number
 ): string[] {
   // dateStr en la zona horaria configurada.
-  const base = new Date(`${dateStr}T12:00:00`); // neutral
+  const base = new Date(`${dateStr}T12:00:00.000Z`); // neutral
   const key = getDayKey(base);
   const hours = schedule.work_hours[key];
   if (!hours) return [];
   const startMin = toMinutes(hours.start);
   const endMin = toMinutes(hours.end);
   const slots: string[] = [];
-  // Construye los slots en UTC según la zona horaria configurada.
-  const OFFSET_HOURS = 6;
   for (let m = startMin; m + duration <= endMin; m += duration) {
     const hh = String(Math.floor(m / 60)).padStart(2, "0");
     const mm = String(m % 60).padStart(2, "0");
-    // Create timestamptz as UTC
-    const utcHour = Math.floor(m / 60) + OFFSET_HOURS;
-    const utcHH = String(utcHour).padStart(2, "0");
-    const iso = `${dateStr}T${utcHH}:${mm}:00.000Z`;
-    // Validate that conversion back to local matches (handles 24h wrap)
-    slots.push(iso);
+    slots.push(localDateTimeToUTC(dateStr, `${hh}:${mm}`));
   }
   return slots;
 }
 
 export function localDateToUTC(dateStr: string, time: string): string {
-  // time HH:mm local -> UTC ISO
-  const [h, m] = time.split(":").map(Number);
-  const utcH = h + 6;
-  const utcHH = String(utcH).padStart(2, "0");
-  const mm = String(m).padStart(2, "0");
-  return `${dateStr}T${utcHH}:${mm}:00.000Z`;
+  return localDateTimeToUTC(dateStr, time);
 }
 
 export function hasOverlap(
@@ -121,15 +152,10 @@ export function hasOverlap(
 ): boolean {
   const aEnd = aStart.getTime() + aDur * 60000;
   const bEnd = bStart.getTime() + bDur * 60000;
-  // con buffer: expande ventana
-  const aStartBuf = aStart.getTime() - 0;
-  const aEndBuf = aEnd + buffer * 60000 - aDur * 60000; // effectively require gap = buffer? Simplified: if buffer=60 and dur=60, block same hour
-  // Simpler collision: intervals with buffer = buffer - but requirement: 1h gap between meetings
-  // So if buffer=60, two 60min meetings at 09:00 and 10:00 overlap? They touch at 10:00. With 60min buffer they should NOT overlap (back-to-back allowed). But requirement says 1h interval to avoid choques at same hour.
-  // Interpretation: slot hour-block, so 09:00 and 10:00 are fine, 09:00 and 09:30 not.
-  // We enforce: Math.abs(aStart - bStart) < buffer is blocked
-  const diff = Math.abs(aStart.getTime() - bStart.getTime());
-  return diff < buffer * 60000;
+  const bufferMs = Math.max(0, buffer) * 60000;
+  const aEndWithBuffer = aEnd + bufferMs;
+  const bEndWithBuffer = bEnd + bufferMs;
+  return aStart.getTime() < bEndWithBuffer && bStart.getTime() < aEndWithBuffer;
 }
 
 export function isWithinWorkHours(
@@ -138,14 +164,12 @@ export function isWithinWorkHours(
   schedule: SiteSchedule
 ): boolean {
   // startsAt is UTC; se convierte a la zona horaria configurada.
-  const local = new Date(startsAt.getTime() - 6 * 3600000);
-  const dateStr = local.toISOString().slice(0, 10);
-  const key = getDayKey(new Date(`${dateStr}T12:00:00`));
+  const local = localDateParts(startsAt);
+  const dateStr = local.dateStr;
+  const key = getDayKey(new Date(`${dateStr}T12:00:00.000Z`));
   const hours = schedule.work_hours[key];
   if (!hours) return false;
-  const startMinLocal = local.getUTCHours() * 60 + local.getUTCMinutes();
-  // local.getUTCHours is actually local hour because we shifted
   const start = toMinutes(hours.start);
   const end = toMinutes(hours.end);
-  return startMinLocal >= start && startMinLocal + duration <= end;
+  return local.minutes >= start && local.minutes + duration <= end;
 }

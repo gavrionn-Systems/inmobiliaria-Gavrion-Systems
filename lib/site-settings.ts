@@ -25,7 +25,14 @@ export type SiteSettings = {
   address: {
     line1: string;
     line2: string;
+    city: string;
+    country: string;
   };
+  mapUrl: string;
+  primaryColor: string;
+  accentColor: string;
+  adminColor: string;
+  backgroundColor: string;
   logoUrl: string;
   heroImageUrl: string;
   heroTitle: string;
@@ -54,6 +61,12 @@ export type SiteSettings = {
     facebook: string;
   };
   hours: string;
+  adminLoginTitle: string;
+  adminLoginSubtitle: string;
+  adminPanelLabel: string;
+  adminWelcomeTitle: string;
+  adminWelcomeSubtitle: string;
+  adminMenuLabel: string;
   about: {
     mission: string;
     stats: SiteStat[];
@@ -117,7 +130,14 @@ export const FALLBACK_SITE_SETTINGS: SiteSettings = {
   address: {
     line1: site.address.line1,
     line2: site.address.line2,
+    city: site.address.city,
+    country: site.address.country,
   },
+  mapUrl: site.mapUrl,
+  primaryColor: "#506600",
+  accentColor: "#a4c639",
+  adminColor: "#5e5e5e",
+  backgroundColor: "#f8f9fa",
   logoUrl: site.logoUrl,
   heroImageUrl: images.hero,
   heroTitle: "Encuentre el espacio ideal para usted",
@@ -148,6 +168,12 @@ export const FALLBACK_SITE_SETTINGS: SiteSettings = {
   },
   hours:
     "Lunes a viernes, 8:00 a.m. – 5:00 p.m.\nSábados, 9:00 a.m. – 1:00 p.m.",
+  adminLoginTitle: "Panel de administración",
+  adminLoginSubtitle: "Ingrese sus credenciales para acceder al panel.",
+  adminPanelLabel: "Panel de administración",
+  adminWelcomeTitle: "Panel de administración",
+  adminWelcomeSubtitle: "Bienvenido de vuelta — aquí está el estado de su catálogo.",
+  adminMenuLabel: "Gestión",
   about: {
     mission:
       "Ofrecemos acompañamiento profesional para ayudar a nuestros clientes a tomar mejores decisiones inmobiliarias.\n\nPersonalice este texto desde la sección Contenido del sitio.",
@@ -181,6 +207,9 @@ type SiteSettingsRow = {
   whatsapp: string | null;
   address_line1: string | null;
   address_line2: string | null;
+  address_city?: string | null;
+  address_country?: string | null;
+  map_url?: string | null;
   logo_url: string | null;
   hero_image_url: string | null;
   hero_title: string | null;
@@ -204,9 +233,19 @@ type SiteSettingsRow = {
   contact_eyebrow?: string | null;
   contact_title?: string | null;
   contact_subtitle?: string | null;
+  primary_color?: string | null;
+  accent_color?: string | null;
+  admin_color?: string | null;
+  background_color?: string | null;
   instagram: string | null;
   facebook: string | null;
   hours: string | null;
+  admin_login_title?: string | null;
+  admin_login_subtitle?: string | null;
+  admin_panel_label?: string | null;
+  admin_welcome_title?: string | null;
+  admin_welcome_subtitle?: string | null;
+  admin_menu_label?: string | null;
   about_mission: string | null;
   about_stats: unknown;
   about_values: unknown;
@@ -293,7 +332,14 @@ function fromRow(row: SiteSettingsRow): SiteSettings {
     address: {
       line1: textOr(row.address_line1, fallback.address.line1),
       line2: textOr(row.address_line2, fallback.address.line2),
+      city: textOr(row.address_city, fallback.address.city),
+      country: textOr(row.address_country, fallback.address.country),
     },
+    mapUrl: textOr(row.map_url, fallback.mapUrl),
+    primaryColor: textOr(row.primary_color, fallback.primaryColor),
+    accentColor: textOr(row.accent_color, fallback.accentColor),
+    adminColor: textOr(row.admin_color, fallback.adminColor),
+    backgroundColor: textOr(row.background_color, fallback.backgroundColor),
     logoUrl: textOr(row.logo_url, fallback.logoUrl),
     heroImageUrl: textOr(row.hero_image_url, fallback.heroImageUrl),
     heroTitle: textOr(row.hero_title, fallback.heroTitle),
@@ -322,6 +368,12 @@ function fromRow(row: SiteSettingsRow): SiteSettings {
       facebook: textOr(row.facebook, fallback.social.facebook),
     },
     hours: textOr(row.hours, fallback.hours),
+    adminLoginTitle: textOr(row.admin_login_title, fallback.adminLoginTitle),
+    adminLoginSubtitle: textOr(row.admin_login_subtitle, fallback.adminLoginSubtitle),
+    adminPanelLabel: textOr(row.admin_panel_label, fallback.adminPanelLabel),
+    adminWelcomeTitle: textOr(row.admin_welcome_title, fallback.adminWelcomeTitle),
+    adminWelcomeSubtitle: textOr(row.admin_welcome_subtitle, fallback.adminWelcomeSubtitle),
+    adminMenuLabel: textOr(row.admin_menu_label, fallback.adminMenuLabel),
     about: {
       mission: textOr(row.about_mission, fallback.about.mission),
       stats: parseStats(row.about_stats),
@@ -349,7 +401,9 @@ function fromRow(row: SiteSettingsRow): SiteSettings {
 
 const BASE_SELECT =
   "name, site_url, email, phone, whatsapp, address_line1, address_line2, logo_url, hero_image_url, instagram, facebook, hours, about_mission, about_stats, about_values, default_agent_name, default_agent_role, home_eyebrow, home_catalog_button, home_contact_button, home_featured_title, home_featured_subtitle, home_empty_featured, home_cta_title, home_cta_text, home_cta_button, catalog_title, catalog_subtitle, catalog_empty, about_eyebrow, about_title, about_mission_title, about_values_title, contact_eyebrow, contact_title, contact_subtitle";
-const HERO_SELECT = `${BASE_SELECT}, hero_title, hero_subtitle`;
+const LOCATION_SELECT = `${BASE_SELECT}, address_city, address_country, map_url, primary_color, accent_color, admin_color, background_color`;
+const ADMIN_SELECT = `${LOCATION_SELECT}, admin_login_title, admin_login_subtitle, admin_panel_label, admin_welcome_title, admin_welcome_subtitle, admin_menu_label`;
+const HERO_SELECT = `${ADMIN_SELECT}, hero_title, hero_subtitle`;
 const FULL_SELECT = `${HERO_SELECT}, indexable, price_step, price_floor, price_ceiling_override, catalog_per_page, featured_limit, related_limit, revalidate_home, revalidate_catalog, revalidate_property, image_quality, hero_priority, enable_animations, search_debounce_ms, price_slider_debounce_ms`;
 
 type SettingsSelect = "full" | "hero" | "base";

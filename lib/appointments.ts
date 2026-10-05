@@ -1,6 +1,6 @@
 import "server-only";
 import { createAdminClient } from "@/lib/supabase/admin";
-import { getSiteSchedule, generateSlotsForDate, hasOverlap, isWithinWorkHours, TZ } from "@/lib/schedule";
+import { getSiteSchedule, generateSlotsForDate, hasOverlap, isWithinWorkHours, localDateToUTC } from "@/lib/schedule";
 
 export type AppointmentRow = {
   id: string;
@@ -27,12 +27,12 @@ export async function getAvailability(
   if (slotIsos.length === 0) return { slots: [], schedule };
 
   const supabase = createAdminClient();
-  // Calcula el rango UTC de la fecha solicitada.
-  const dayStartUTC = `${dateStr}T06:00:00.000Z`;
-  const nextDay = new Date(`${dateStr}T12:00:00Z`);
-  nextDay.setDate(nextDay.getDate() + 1);
+  // Calcula el rango UTC de la fecha local de la instalación.
+  const nextDay = new Date(`${dateStr}T12:00:00.000Z`);
+  nextDay.setUTCDate(nextDay.getUTCDate() + 1);
   const nextStr = nextDay.toISOString().slice(0, 10);
-  const dayEndUTC = `${nextStr}T06:00:00.000Z`;
+  const dayStartUTC = localDateToUTC(dateStr, "00:00");
+  const dayEndUTC = localDateToUTC(nextStr, "00:00");
 
   const { data: appointments } = await supabase
     .from("appointments")
@@ -92,9 +92,10 @@ export async function checkCollision(
   const schedule = await getSiteSchedule();
   const buffer = schedule.buffer_minutes;
   const supabase = createAdminClient();
-  // buscar citas en ± buffer window
-  const windowStart = new Date(starts.getTime() - buffer * 60000).toISOString();
-  const windowEnd = new Date(starts.getTime() + buffer * 60000).toISOString();
+  // Buscar un rango amplio y dejar que hasOverlap evalúe duración + buffer.
+  // Un rango de solo ±buffer omitía citas largas que empezaban antes.
+  const windowStart = new Date(starts.getTime() - 24 * 60 * 60000).toISOString();
+  const windowEnd = new Date(starts.getTime() + 24 * 60 * 60000).toISOString();
   const { data } = await supabase
     .from("appointments")
     .select("*")

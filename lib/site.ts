@@ -8,6 +8,8 @@ export const site = {
   address: {
     line1: "Ciudad, país",
     line2: "",
+    city: "Ciudad",
+    country: "País",
   },
   mapUrl:
     "https://maps.google.com",
@@ -25,13 +27,13 @@ export const navItems = [
 ] as const;
 
 export const adminNav = [
-  { key: "dashboard", label: "Dashboard", href: "/admin" },
-  { key: "crm", label: "CRM", href: "/admin/crm" },
-  { key: "propiedades", label: "Propiedades", href: "/admin/propiedades" },
-  { key: "solicitudes", label: "Solicitudes", href: "/admin/solicitudes" },
-  { key: "equipo", label: "Equipo", href: "/admin/equipo" },
-  { key: "categorias", label: "Categorías", href: "/admin/categorias" },
-  { key: "configuracion", label: "Configuración", href: "/admin/configuracion" },
+  { key: "dashboard", label: "Dashboard", href: "/admin", icon: "dashboard" },
+  { key: "crm", label: "CRM", href: "/admin/crm", icon: "hub" },
+  { key: "propiedades", label: "Propiedades", href: "/admin/propiedades", icon: "home_work" },
+  { key: "solicitudes", label: "Solicitudes", href: "/admin/solicitudes", icon: "inbox" },
+  { key: "equipo", label: "Equipo", href: "/admin/equipo", icon: "groups" },
+  { key: "categorias", label: "Categorías", href: "/admin/categorias", icon: "category" },
+  { key: "configuracion", label: "Configuración", href: "/admin/configuracion", icon: "settings" },
 ] as const;
 
 export const crmNav = [

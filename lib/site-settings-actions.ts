@@ -20,10 +20,23 @@ export type SiteSettingsInput = {
   phone: string;
   addressLine1: string;
   addressLine2: string;
+  city: string;
+  country: string;
+  mapUrl: string;
+  primaryColor: string;
+  accentColor: string;
+  adminColor: string;
+  backgroundColor: string;
   whatsapp: string;
   instagram: string;
   facebook: string;
   hours: string;
+  adminLoginTitle: string;
+  adminLoginSubtitle: string;
+  adminPanelLabel: string;
+  adminWelcomeTitle: string;
+  adminWelcomeSubtitle: string;
+  adminMenuLabel: string;
   heroTitle: string;
   heroSubtitle: string;
   heroImageUrl: string;
@@ -69,6 +82,7 @@ export type SiteSettingsInput = {
 };
 
 const isHttp = (v: string) => /^https?:\/\//i.test(v);
+const hexColor = z.string().trim().regex(/^#[0-9a-fA-F]{6}$/, "Use un color hexadecimal válido, por ejemplo #506600.");
 
 const siteStatSchema = z.object({
   value: z.string().trim().min(1, "Escriba la cifra.").max(24),
@@ -106,10 +120,27 @@ const siteSettingsInputSchema = z.object({
   phone: z.string().trim().min(5, "Escriba un teléfono.").max(40),
   addressLine1: z.string().trim().max(200),
   addressLine2: z.string().trim().max(80),
+  city: z.string().trim().max(120),
+  country: z.string().trim().max(120),
+  mapUrl: z
+    .string()
+    .trim()
+    .max(1000)
+    .refine((v) => !v || isHttp(v), "El mapa debe ser una URL http(s)."),
+  primaryColor: hexColor,
+  accentColor: hexColor,
+  adminColor: hexColor,
+  backgroundColor: hexColor,
   whatsapp: z.string().trim().max(200),
   instagram: z.string().trim().max(300),
   facebook: z.string().trim().max(300),
   hours: z.string().trim().max(500),
+  adminLoginTitle: z.string().trim().min(1).max(120),
+  adminLoginSubtitle: z.string().trim().max(240),
+  adminPanelLabel: z.string().trim().min(1).max(120),
+  adminWelcomeTitle: z.string().trim().min(1).max(160),
+  adminWelcomeSubtitle: z.string().trim().max(300),
+  adminMenuLabel: z.string().trim().min(1).max(60),
   heroTitle: z
     .string()
     .trim()
@@ -213,7 +244,9 @@ function revalidateSite() {
   revalidatePath("/contacto");
   revalidatePath("/nosotros");
   revalidatePath("/propiedades");
+  revalidatePath("/admin");
   revalidatePath("/admin/configuracion");
+  revalidatePath("/admin/login");
   revalidatePath("/sitemap.xml");
   revalidatePath("/robots.txt");
 }
@@ -238,6 +271,29 @@ function contactPayload(data: ParsedSettings) {
     price_step: data.priceStep,
     price_floor: data.priceFloor,
     price_ceiling_override: data.priceCeilingOverride,
+  };
+}
+
+function locationThemePayload(data: ParsedSettings) {
+  return {
+    address_city: data.city,
+    address_country: data.country,
+    map_url: data.mapUrl,
+    primary_color: data.primaryColor.toLowerCase(),
+    accent_color: data.accentColor.toLowerCase(),
+    admin_color: data.adminColor.toLowerCase(),
+    background_color: data.backgroundColor.toLowerCase(),
+  };
+}
+
+function adminPayload(data: ParsedSettings) {
+  return {
+    admin_login_title: data.adminLoginTitle,
+    admin_login_subtitle: data.adminLoginSubtitle,
+    admin_panel_label: data.adminPanelLabel,
+    admin_welcome_title: data.adminWelcomeTitle,
+    admin_welcome_subtitle: data.adminWelcomeSubtitle,
+    admin_menu_label: data.adminMenuLabel,
   };
 }
 
@@ -301,6 +357,8 @@ function insertPayload(data: ParsedSettings) {
   return {
     id: 1,
     ...contactPayload(data),
+    ...locationThemePayload(data),
+    ...adminPayload(data),
     ...aboutPayload(data),
     ...heroCopyPayload(data),
     ...contentPayload(data),
@@ -342,6 +400,8 @@ export async function saveSiteSettings(
 
   const updateFull = {
     ...contactPayload(data),
+    ...locationThemePayload(data),
+    ...adminPayload(data),
     ...aboutPayload(data),
     ...heroCopyPayload(data),
     ...contentPayload(data),
@@ -350,6 +410,8 @@ export async function saveSiteSettings(
   };
   const updateWithPerformance = {
     ...contactPayload(data),
+    ...locationThemePayload(data),
+    ...adminPayload(data),
     ...aboutPayload(data),
     ...heroCopyPayload(data),
     ...contentPayload(data),
@@ -357,12 +419,16 @@ export async function saveSiteSettings(
   };
   const updateWithAbout = {
     ...contactPayload(data),
+    ...locationThemePayload(data),
+    ...adminPayload(data),
     ...aboutPayload(data),
     ...heroCopyPayload(data),
     ...contentPayload(data),
   };
   const updateWithHero = {
     ...contactPayload(data),
+    ...locationThemePayload(data),
+    ...adminPayload(data),
     ...heroCopyPayload(data),
   };
   const updateBase = contactPayload(data);
