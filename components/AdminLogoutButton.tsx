@@ -20,9 +20,12 @@ export default function AdminLogoutButton() {
       type="button"
       onClick={logout}
       disabled={loggingOut}
-      className="px-6 py-3 font-label-md text-label-md text-surface-variant hover:bg-white/10 hover:text-surface transition-colors text-left disabled:opacity-60"
+      className="group flex items-center gap-3 w-full rounded-xl px-3 py-3 font-label-md text-label-md text-surface-variant hover:bg-white/10 hover:text-surface transition-colors text-left disabled:opacity-60"
     >
-      {loggingOut ? "Saliendo…" : "Cerrar sesión"}
+      <span aria-hidden="true" className="material-symbols-outlined text-xl text-error-container">
+        logout
+      </span>
+      <span>{loggingOut ? "Saliendo…" : "Cerrar sesión"}</span>
     </button>
   );
 }
