@@ -2,16 +2,15 @@
 
 import { useRouter } from "next/navigation";
 import { useState } from "react";
-import { adminLoginPath } from "@/lib/demo-auth";
 
-export default function AdminLogoutButton() {
+export default function AdminLogoutButton({ loginPath }: { loginPath: string }) {
   const router = useRouter();
   const [loggingOut, setLoggingOut] = useState(false);
 
   async function logout() {
     setLoggingOut(true);
     await fetch("/api/auth/logout", { method: "POST" });
-    router.push(adminLoginPath());
+    router.push(loginPath);
     router.refresh();
   }
 
