@@ -35,12 +35,21 @@ export default function AppointmentCalendar({
   duration,
   onSelect,
   selectedIso,
+  scheduleLabel,
+  bufferMinutes,
 }: {
   duration: number;
   onSelect: (iso: string) => void;
   selectedIso: string | null;
+  scheduleLabel: string;
+  bufferMinutes: number;
 }) {
-  const todayStr = new Date().toISOString().slice(0, 10);
+  const todayStr = new Intl.DateTimeFormat("en-CA", {
+    timeZone: SITE_TIMEZONE,
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+  }).format(new Date());
   const [cursor, setCursor] = useState(() => startOfMonth(todayStr));
   const [selectedDate, setSelectedDate] = useState(() => todayStr);
   const [slots, setSlots] = useState<Slot[]>([]);
@@ -101,6 +110,29 @@ export default function AppointmentCalendar({
     return d.getDay() === 0;
   }
 
+  function firstSelectableDate(year: number, month: number): string {
+    const daysInMonth = new Date(year, month + 1, 0).getDate();
+    for (let day = 1; day <= daysInMonth; day += 1) {
+      const iso = `${year}-${String(month + 1).padStart(2, "0")}-${String(day).padStart(2, "0")}`;
+      if (!isPast(iso) && !isSunday(iso)) return iso;
+    }
+    return `${year}-${String(month + 1).padStart(2, "0")}-01`;
+  }
+
+  function goToMonth(offset: number) {
+    const next = new Date(cursor.getFullYear(), cursor.getMonth() + offset, 1);
+    setCursor(next);
+    setSelectedDate(firstSelectableDate(next.getFullYear(), next.getMonth()));
+    onSelect("");
+  }
+
+  function goToToday() {
+    const today = startOfMonth(todayStr);
+    setCursor(today);
+    setSelectedDate(todayStr);
+    onSelect("");
+  }
+
   return (
     <div className="bg-surface-container-lowest rounded-[16px] border border-outline-variant shadow-[0_8px_32px_rgba(0,0,0,0.06),0_1px_2px_rgba(0,0,0,0.04)] overflow-hidden flex flex-col">
       {/* Month header — impeccable tonal field */}
@@ -109,12 +141,13 @@ export default function AppointmentCalendar({
           <h3 className="font-headline-md text-headline-md text-on-surface capitalize tracking-tight" style={{ letterSpacing: "-0.02em" }}>
             {formatMonth(cursor)}
           </h3>
-          <p className="font-body-md text-body-md text-secondary text-sm mt-0.5">Horario laboral: Lun–Vie 8:00–17:00 · Sáb 8:00–12:00</p>
+          <p className="font-body-md text-body-md text-secondary text-sm mt-0.5">Horario laboral: {scheduleLabel}</p>
         </div>
         <div className="flex items-center gap-1.5">
           <button
             type="button"
-            onClick={() => setCursor(new Date(cursor.getFullYear(), cursor.getMonth() - 1, 1))}
+            onClick={() => goToMonth(-1)}
+            disabled={cursor.getFullYear() === startOfMonth(todayStr).getFullYear() && cursor.getMonth() === startOfMonth(todayStr).getMonth()}
             className="w-9 h-9 rounded-full bg-surface border border-outline-variant flex items-center justify-center text-secondary hover:border-primary hover:text-on-surface transition-colors"
             aria-label="Mes anterior"
           >
@@ -122,14 +155,14 @@ export default function AppointmentCalendar({
           </button>
           <button
             type="button"
-            onClick={() => setCursor(startOfMonth(todayStr))}
+            onClick={goToToday}
             className="px-3 h-9 rounded-full bg-surface border border-outline-variant font-label-sm text-label-sm text-secondary hover:border-primary hover:text-on-surface transition-colors"
           >
             Hoy
           </button>
           <button
             type="button"
-            onClick={() => setCursor(new Date(cursor.getFullYear(), cursor.getMonth() + 1, 1))}
+            onClick={() => goToMonth(1)}
             className="w-9 h-9 rounded-full bg-surface border border-outline-variant flex items-center justify-center text-secondary hover:border-primary hover:text-on-surface transition-colors"
             aria-label="Mes siguiente"
           >
@@ -183,7 +216,7 @@ export default function AppointmentCalendar({
         </div>
         <p className="font-body-md text-body-md text-secondary text-xs mt-3 flex items-center gap-1.5">
           <span className="w-2 h-2 rounded-full bg-primary-container inline-block" aria-hidden />
-          Día laborable · domingo cerrado · 60′ entre reuniones
+          Día laborable · domingo cerrado · {bufferMinutes}′ entre reuniones
         </p>
       </div>
 

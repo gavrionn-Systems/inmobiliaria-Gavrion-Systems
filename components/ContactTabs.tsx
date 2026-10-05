@@ -5,15 +5,17 @@ import AppointmentCalendar from "@/components/AppointmentCalendar";
 import AppointmentForm from "@/components/AppointmentForm";
 
 export default function ContactTabs({
-  propertyId: _propertyId,
-  propertySlug: _propertySlug,
+  propertyId,
   allowedDurations,
   defaultDuration,
+  scheduleLabel,
+  bufferMinutes,
 }: {
   propertyId: string | null;
-  propertySlug: string | null;
   allowedDurations: number[];
   defaultDuration: number;
+  scheduleLabel: string;
+  bufferMinutes: number;
 }) {
   const [selectedIso, setSelectedIso] = useState<string | null>(null);
   const [duration, setDuration] = useState(defaultDuration);
@@ -21,12 +23,22 @@ export default function ContactTabs({
   return (
     <div className="space-y-6 animate-[fadeIn_0.25s_ease-out]">
       <div className="grid grid-cols-1 xl:grid-cols-[1.05fr_0.95fr] gap-gutter items-start">
-        <AppointmentCalendar duration={duration} onSelect={setSelectedIso} selectedIso={selectedIso} />
+        <AppointmentCalendar
+          duration={duration}
+          onSelect={setSelectedIso}
+          selectedIso={selectedIso}
+          scheduleLabel={scheduleLabel}
+          bufferMinutes={bufferMinutes}
+        />
         <div className="xl:sticky xl:top-28">
           <AppointmentForm
+            propertyId={propertyId}
             selectedIso={selectedIso}
             duration={duration}
-            onDurationChange={setDuration}
+            onDurationChange={(nextDuration) => {
+              setDuration(nextDuration);
+              setSelectedIso(null);
+            }}
             allowedDurations={allowedDurations}
           />
         </div>

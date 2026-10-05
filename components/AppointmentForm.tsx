@@ -4,6 +4,7 @@ import { useState, useTransition } from "react";
 import { SITE_LOCALE, SITE_TIMEZONE } from "@/lib/site-locale";
 
 type Props = {
+  propertyId: string | null;
   selectedIso: string | null;
   duration: number;
   onDurationChange: (d: number) => void;
@@ -35,7 +36,7 @@ const MOTIVOS = [
   "Otro",
 ] as const;
 
-export default function AppointmentForm({ selectedIso, duration, onDurationChange, allowedDurations }: Props) {
+export default function AppointmentForm({ propertyId, selectedIso, duration, onDurationChange, allowedDurations }: Props) {
   const [pending, startTransition] = useTransition();
   const [error, setError] = useState<string | null>(null);
   const [suggestions, setSuggestions] = useState<string[]>([]);
@@ -110,7 +111,7 @@ export default function AppointmentForm({ selectedIso, duration, onDurationChang
       full_name: String(form.get("nombre") ?? ""),
       email: String(form.get("email") ?? "").trim(),
       phone: String(form.get("telefono") ?? "") || null,
-      property_id: null,
+      property_id: propertyId,
       starts_at: selectedIso,
       duration_minutes: duration,
       motivo,

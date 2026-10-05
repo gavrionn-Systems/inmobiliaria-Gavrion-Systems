@@ -6,11 +6,13 @@ import { usePathname, useRouter } from "next/navigation";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { adminLoginPath } from "@/lib/demo-auth";
 
-type NavItem = { key: string; label: string; href: string };
+type NavItem = { key: string; label: string; href: string; icon?: string };
 
 export default function AdminMobileNav({
   items,
   title,
+  panelLabel,
+  menuLabel,
   logoUrl,
   siteName,
   userName,
@@ -18,6 +20,8 @@ export default function AdminMobileNav({
 }: {
   items: readonly NavItem[];
   title: string;
+  panelLabel: string;
+  menuLabel: string;
   logoUrl: string;
   siteName: string;
   userName?: string;
@@ -61,7 +65,9 @@ export default function AdminMobileNav({
   }
 
   const isActive = (href: string) =>
-    href === "/admin" ? pathname === "/admin" : pathname.startsWith(href);
+    href === "/admin"
+      ? pathname === "/admin" || pathname.endsWith("/admin")
+      : pathname === href || pathname.startsWith(href) || pathname.endsWith(href.replace(/^\/admin/, ""));
 
   return (
     <>
@@ -78,8 +84,13 @@ export default function AdminMobileNav({
               />
             </span>
           </span>
-          <span className="font-headline-md text-headline-md text-surface text-sm truncate">
-            {title}
+          <span className="min-w-0">
+            <span className="block font-headline-md text-headline-md text-surface text-sm truncate">
+              {title}
+            </span>
+            <span className="block font-label-sm text-label-sm text-surface-variant truncate">
+              {panelLabel}
+            </span>
           </span>
         </Link>
         <button
@@ -127,9 +138,14 @@ export default function AdminMobileNav({
               />
             </span>
           </span>
-          <p className="font-headline-md text-headline-md text-surface text-sm truncate">
-            {title}
-          </p>
+          <div className="min-w-0">
+            <p className="font-headline-md text-headline-md text-surface text-sm truncate">
+              {title}
+            </p>
+            <p className="font-label-sm text-label-sm text-surface-variant truncate">
+              {panelLabel}
+            </p>
+          </div>
         </div>
 
         {userName && (
@@ -157,7 +173,7 @@ export default function AdminMobileNav({
 
         <nav className="flex flex-col py-4 flex-1 overflow-y-auto" aria-label="Admin móvil">
           <p className="px-6 pb-2 font-label-sm text-label-sm text-surface-variant uppercase tracking-wider">
-            Gestión
+            {menuLabel}
           </p>
           {items.map((item) => (
             <Link
@@ -165,29 +181,40 @@ export default function AdminMobileNav({
               href={item.href}
               aria-current={isActive(item.href) ? "page" : undefined}
               onClick={() => setOpen(false)}
-              className={`px-6 py-3 font-label-md text-label-md transition-colors ${
+              className={`flex items-center gap-3 px-6 py-3 font-label-md text-label-md transition-colors ${
                 isActive(item.href)
                   ? "text-primary-fixed font-bold bg-white/10"
                   : "text-surface-variant hover:bg-white/10 hover:text-surface"
               }`}
             >
-              {item.label}
+              <span aria-hidden="true" className="material-symbols-outlined text-xl">
+                {item.icon ?? "arrow_forward"}
+              </span>
+              <span>{item.label}</span>
             </Link>
           ))}
           <Link
             href="/"
+            target="_blank"
+            rel="noopener noreferrer"
             onClick={() => setOpen(false)}
-            className="px-6 py-3 font-label-md text-label-md text-surface-variant hover:bg-white/10 hover:text-surface transition-colors"
+            className="flex items-center gap-3 px-6 py-3 font-label-md text-label-md text-surface-variant hover:bg-white/10 hover:text-surface transition-colors"
           >
+            <span aria-hidden="true" className="material-symbols-outlined text-xl">
+              open_in_new
+            </span>
             Ver sitio público
           </Link>
           <button
             type="button"
             onClick={logout}
             disabled={loggingOut}
-            className="mt-auto px-6 py-3 font-label-md text-label-md text-error-container hover:bg-white/10 transition-colors text-left disabled:opacity-60"
+            className="mt-auto flex items-center gap-3 px-6 py-3 font-label-md text-label-md text-error-container hover:bg-white/10 transition-colors text-left disabled:opacity-60"
           >
-            {loggingOut ? "Saliendo…" : "Cerrar sesión"}
+            <span aria-hidden="true" className="material-symbols-outlined text-xl">
+              logout
+            </span>
+            <span>{loggingOut ? "Saliendo…" : "Cerrar sesión"}</span>
           </button>
         </nav>
       </div>
