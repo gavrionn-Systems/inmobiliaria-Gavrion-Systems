@@ -1,12 +1,26 @@
 import type { Metadata } from "next";
-import Image from "next/image";
-import { images } from "@/lib/properties";
 import { getMapEmbedUrl } from "@/lib/map-embed";
 import { getPropertyBySlug } from "@/lib/queries";
-import { site } from "@/lib/site";
 import { getSiteSettings } from "@/lib/site-settings";
 import ContactTabs from "@/components/ContactTabs";
-import { getSiteSchedule } from "@/lib/schedule";
+import { getSiteSchedule, type WorkHours } from "@/lib/schedule";
+
+function formatScheduleLabel(workHours: WorkHours): string {
+  const format = (value: string) => value.replace(/^0/, "");
+  const range = (value: { start: string; end: string } | null) =>
+    value ? `${format(value.start)}–${format(value.end)}` : "cerrado";
+  const weekdays = [workHours.mon, workHours.tue, workHours.wed, workHours.thu, workHours.fri];
+  const sameWeekdayHours = weekdays.every(
+    (day) => day?.start === weekdays[0]?.start && day?.end === weekdays[0]?.end
+  );
+  const weekdayLabel = sameWeekdayHours
+    ? `Lun–Vie ${range(workHours.mon)}`
+    : weekdays
+        .map((day, index) => `${["Lun", "Mar", "Mié", "Jue", "Vie"][index]} ${range(day)}`)
+        .join(" · ");
+  const saturdayLabel = workHours.sat ? `Sáb ${range(workHours.sat)}` : "Sáb cerrado";
+  return `${weekdayLabel} · ${saturdayLabel}`;
+}
 
 export async function generateMetadata(): Promise<Metadata> {
   const settings = await getSiteSettings();
@@ -33,12 +47,13 @@ export default async function ContactoPage({
   searchParams: Promise<{ propiedad?: string }>;
 }) {
   const { propiedad } = await searchParams;
-  const [prefilled, settings, mapEmbedUrl, schedule] = await Promise.all([
+  const settings = await getSiteSettings();
+  const [prefilled, mapEmbedUrl, schedule] = await Promise.all([
     propiedad ? getPropertyBySlug(propiedad) : Promise.resolve(null),
-    getSiteSettings(),
-    getMapEmbedUrl(site.mapUrl),
+    getMapEmbedUrl(settings.mapUrl),
     getSiteSchedule(),
   ]);
+  const scheduleLabel = formatScheduleLabel(schedule.work_hours);
 
   const contactoJsonLd = {
     "@context": "https://schema.org",
@@ -50,8 +65,8 @@ export default async function ContactoPage({
     address: {
       "@type": "PostalAddress",
       streetAddress: settings.address.line1,
-      addressLocality: settings.address.line1,
-      addressCountry: "HN",
+      addressLocality: settings.address.city,
+      addressCountry: settings.address.country,
     },
     openingHours: settings.hours,
   };
@@ -80,7 +95,7 @@ export default async function ContactoPage({
           <div className="flex items-center gap-3 shrink-0">
             <div className="hidden sm:flex items-center gap-2 rounded-full bg-surfaceContainerLowest/0 border border-white/15 px-4 py-2.5 backdrop-blur">
               <span className="material-symbols-outlined text-primary-fixed-dim text-[18px]" aria-hidden>schedule</span>
-              <span className="font-label-sm text-label-sm text-inverse-on-surface/90">Lun–Vie 8–17 · Sáb 8–12</span>
+              <span className="font-label-sm text-label-sm text-inverse-on-surface/90">{scheduleLabel}</span>
             </div>
             <a
               href={`https://wa.me/${settings.phone.replace(/[^0-9]/g, "")}`}
@@ -106,7 +121,7 @@ export default async function ContactoPage({
           </div>
 
           <div className="space-y-5">
-            <a href={`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(settings.address.line1)}`} target="_blank" rel="noopener" className="flex gap-3 group">
+            <a href={settings.mapUrl || `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(settings.address.line1)}`} target="_blank" rel="noopener" className="flex gap-3 group">
               <span className="w-9 h-9 rounded-full bg-surface-container border border-outline-variant flex items-center justify-center text-secondary group-hover:border-primary-container group-hover:text-primary transition-colors shrink-0" aria-hidden>
                 <span className="material-symbols-outlined text-[18px]">place</span>
               </span>
@@ -118,6 +133,12 @@ export default async function ContactoPage({
                     <>
                       <br />
                       {settings.address.line2}
+                    </>
+                  ) : null}
+                  {settings.address.city || settings.address.country ? (
+                    <>
+                      <br />
+                      {[settings.address.city, settings.address.country].filter(Boolean).join(", ")}
                     </>
                   ) : null}
                 </p>
@@ -170,16 +191,20 @@ export default async function ContactoPage({
                 className="absolute inset-0 w-full h-full border-0 grayscale-[0.15] group-hover:grayscale-0 transition-all duration-300"
               />
             ) : (
-              <Image
-                src={images.mapaContacto}
-                alt={`Mapa de ubicación de ${settings.name}`}
-                fill
-                sizes="(max-width: 400px) 100vw, 33vw"
-                className="object-cover"
-              />
+              <div className="absolute inset-0 bg-surface-container-low flex flex-col items-center justify-center gap-3 text-center px-6">
+                <span className="material-symbols-outlined text-4xl text-primary" aria-hidden>
+                  map
+                </span>
+                <p className="font-label-md text-label-md text-on-surface">
+                  {settings.address.city || settings.address.country || "Ubicación principal"}
+                </p>
+                <p className="font-body-md text-body-md text-secondary text-sm">
+                  Configure un enlace de Google Maps válido para mostrar el mapa aquí.
+                </p>
+              </div>
             )}
             <a
-              href={site.mapUrl}
+              href={settings.mapUrl || `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(settings.address.line1)}`}
               target="_blank"
               rel="noopener"
               className="absolute bottom-3 left-3 right-3 rounded-full bg-surfaceContainerLowest/95 backdrop-blur border border-outline-variant px-3 py-2 flex items-center justify-between font-label-sm text-label-sm text-on-surface shadow-sm hover:border-primary-container transition-colors"
@@ -188,7 +213,7 @@ export default async function ContactoPage({
                 <span className="material-symbols-outlined text-primary text-[18px]" aria-hidden>open_in_new</span>
                 Ver en Google Maps
               </span>
-              <span className="text-secondary">{settings.address.line1}</span>
+              <span className="text-secondary">{settings.address.city || settings.address.line1}</span>
             </a>
           </div>
 
@@ -198,9 +223,10 @@ export default async function ContactoPage({
         <div className="order-1 lg:order-2 lg:col-span-8">
           <ContactTabs
             propertyId={prefilled?.id ?? null}
-            propertySlug={prefilled?.title ?? null}
             allowedDurations={schedule.slot_durations}
             defaultDuration={schedule.slot_duration_default}
+            scheduleLabel={scheduleLabel}
+            bufferMinutes={schedule.buffer_minutes}
           />
         </div>
       </div>

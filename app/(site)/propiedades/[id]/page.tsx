@@ -90,7 +90,7 @@ export default async function PropertyDetailPage({
   const mapImageUrl =
     property.map_image_url && !isMapsLink(property.map_image_url)
       ? property.map_image_url
-      : images.mapaContacto;
+      : property.main_image_url ?? images.hero;
 
   const construction = Number(property.construction_area_m2 ?? 0);
   const pricePerM2 =
@@ -428,7 +428,7 @@ export default async function PropertyDetailPage({
               "@type": "PostalAddress",
               streetAddress: property.address ?? undefined,
               addressLocality: property.locations?.name,
-              addressCountry: "HN",
+              addressCountry: settings.address.country,
             },
             numberOfRooms: property.bedrooms ?? undefined,
             numberOfBathroomsTotal: property.bathrooms ?? undefined,
