@@ -16,6 +16,24 @@ export type SiteValue = {
   description: string;
 };
 
+export type AdminMenuVisibility = {
+  crm: boolean;
+  propiedades: boolean;
+  solicitudes: boolean;
+  equipo: boolean;
+  categorias: boolean;
+  configuracion: boolean;
+};
+
+export const DEFAULT_ADMIN_MENU_VISIBILITY: AdminMenuVisibility = {
+  crm: true,
+  propiedades: true,
+  solicitudes: true,
+  equipo: true,
+  categorias: true,
+  configuracion: true,
+};
+
 export type SiteSettings = {
   name: string;
   url: string;
@@ -67,6 +85,7 @@ export type SiteSettings = {
   adminWelcomeTitle: string;
   adminWelcomeSubtitle: string;
   adminMenuLabel: string;
+  adminMenuVisibility: AdminMenuVisibility;
   about: {
     mission: string;
     stats: SiteStat[];
@@ -174,6 +193,7 @@ export const FALLBACK_SITE_SETTINGS: SiteSettings = {
   adminWelcomeTitle: "Panel de administración",
   adminWelcomeSubtitle: "Bienvenido de vuelta — aquí está el estado de su catálogo.",
   adminMenuLabel: "Gestión",
+  adminMenuVisibility: DEFAULT_ADMIN_MENU_VISIBILITY,
   about: {
     mission:
       "Ofrecemos acompañamiento profesional para ayudar a nuestros clientes a tomar mejores decisiones inmobiliarias.\n\nPersonalice este texto desde la sección Contenido del sitio.",
@@ -246,6 +266,7 @@ type SiteSettingsRow = {
   admin_welcome_title?: string | null;
   admin_welcome_subtitle?: string | null;
   admin_menu_label?: string | null;
+  admin_menu_visibility?: unknown;
   about_mission: string | null;
   about_stats: unknown;
   about_values: unknown;
@@ -288,7 +309,8 @@ function parseStats(value: unknown): SiteStat[] {
 
 function parseValues(value: unknown): SiteValue[] {
   if (!Array.isArray(value)) return FALLBACK_SITE_SETTINGS.about.values;
-  const parsed = value.flatMap((item) => {
+  const fallbackIcons = ["verified", "handshake", "bolt"];
+  const parsed = value.flatMap((item, index) => {
     if (!item || typeof item !== "object") return [];
     const row = item as Record<string, unknown>;
     if (
@@ -298,15 +320,26 @@ function parseValues(value: unknown): SiteValue[] {
     ) {
       return [];
     }
+    const icon = row.icon.trim();
     return [
       {
-        icon: row.icon,
+        icon: /^[a-z][a-z0-9_]*$/i.test(icon) ? icon : fallbackIcons[index] ?? "verified",
         title: row.title,
         description: row.description,
       },
     ];
   });
   return parsed.length > 0 ? parsed : FALLBACK_SITE_SETTINGS.about.values;
+}
+
+function parseAdminMenuVisibility(value: unknown): AdminMenuVisibility {
+  const visibility = { ...DEFAULT_ADMIN_MENU_VISIBILITY };
+  if (!value || typeof value !== "object") return visibility;
+  const row = value as Record<string, unknown>;
+  for (const key of Object.keys(visibility) as (keyof AdminMenuVisibility)[]) {
+    if (typeof row[key] === "boolean") visibility[key] = row[key] as boolean;
+  }
+  return visibility;
 }
 
 function clampInt(v: unknown, min: number, max: number, fallback: number): number {
@@ -374,6 +407,7 @@ function fromRow(row: SiteSettingsRow): SiteSettings {
     adminWelcomeTitle: textOr(row.admin_welcome_title, fallback.adminWelcomeTitle),
     adminWelcomeSubtitle: textOr(row.admin_welcome_subtitle, fallback.adminWelcomeSubtitle),
     adminMenuLabel: textOr(row.admin_menu_label, fallback.adminMenuLabel),
+    adminMenuVisibility: parseAdminMenuVisibility(row.admin_menu_visibility),
     about: {
       mission: textOr(row.about_mission, fallback.about.mission),
       stats: parseStats(row.about_stats),
@@ -402,7 +436,7 @@ function fromRow(row: SiteSettingsRow): SiteSettings {
 const BASE_SELECT =
   "name, site_url, email, phone, whatsapp, address_line1, address_line2, logo_url, hero_image_url, instagram, facebook, hours, about_mission, about_stats, about_values, default_agent_name, default_agent_role, home_eyebrow, home_catalog_button, home_contact_button, home_featured_title, home_featured_subtitle, home_empty_featured, home_cta_title, home_cta_text, home_cta_button, catalog_title, catalog_subtitle, catalog_empty, about_eyebrow, about_title, about_mission_title, about_values_title, contact_eyebrow, contact_title, contact_subtitle";
 const LOCATION_SELECT = `${BASE_SELECT}, address_city, address_country, map_url, primary_color, accent_color, admin_color, background_color`;
-const ADMIN_SELECT = `${LOCATION_SELECT}, admin_login_title, admin_login_subtitle, admin_panel_label, admin_welcome_title, admin_welcome_subtitle, admin_menu_label`;
+const ADMIN_SELECT = `${LOCATION_SELECT}, admin_login_title, admin_login_subtitle, admin_panel_label, admin_welcome_title, admin_welcome_subtitle, admin_menu_label, admin_menu_visibility`;
 const HERO_SELECT = `${ADMIN_SELECT}, hero_title, hero_subtitle`;
 const FULL_SELECT = `${HERO_SELECT}, indexable, price_step, price_floor, price_ceiling_override, catalog_per_page, featured_limit, related_limit, revalidate_home, revalidate_catalog, revalidate_property, image_quality, hero_priority, enable_animations, search_debounce_ms, price_slider_debounce_ms`;
 

@@ -23,7 +23,7 @@ export function adminPanelSlug(): string {
   return DEFAULT_ADMIN_PANEL_SLUG;
 }
 
-/** URL de login del panel usando la ruta secreta (ej. "/acceso-panel/login"). */
+/** URL de login del panel usando la ruta secreta configurada en runtime. */
 export function adminLoginPath(): string {
   return `/${adminPanelSlug()}/login`;
 }

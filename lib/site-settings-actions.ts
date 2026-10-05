@@ -5,7 +5,11 @@ import { z } from "zod";
 import { auditLog } from "@/lib/audit";
 import { getSession } from "@/lib/auth";
 import { isPlatformRole } from "@/lib/rbac";
-import { invalidateSiteSettingsMemory } from "@/lib/site-settings";
+import {
+  DEFAULT_ADMIN_MENU_VISIBILITY,
+  invalidateSiteSettingsMemory,
+  type AdminMenuVisibility,
+} from "@/lib/site-settings";
 import { createAdminClient } from "@/lib/supabase/admin";
 
 export type SiteSettingsActionResult =
@@ -37,6 +41,7 @@ export type SiteSettingsInput = {
   adminWelcomeTitle: string;
   adminWelcomeSubtitle: string;
   adminMenuLabel: string;
+  adminMenuVisibility: AdminMenuVisibility;
   heroTitle: string;
   heroSubtitle: string;
   heroImageUrl: string;
@@ -90,7 +95,12 @@ const siteStatSchema = z.object({
 });
 
 const siteValueSchema = z.object({
-  icon: z.string().trim().min(1, "Indique el icono.").max(40),
+  icon: z
+    .string()
+    .trim()
+    .min(1, "Indique el icono.")
+    .max(40)
+    .regex(/^[a-z][a-z0-9_]*$/i, "Use el nombre de un icono Material, por ejemplo verified."),
   title: z.string().trim().min(1, "Escriba el título del valor.").max(60),
   description: z
     .string()
@@ -141,6 +151,14 @@ const siteSettingsInputSchema = z.object({
   adminWelcomeTitle: z.string().trim().min(1).max(160),
   adminWelcomeSubtitle: z.string().trim().max(300),
   adminMenuLabel: z.string().trim().min(1).max(60),
+  adminMenuVisibility: z.object({
+    crm: z.boolean(),
+    propiedades: z.boolean(),
+    solicitudes: z.boolean(),
+    equipo: z.boolean(),
+    categorias: z.boolean(),
+    configuracion: z.boolean(),
+  }),
   heroTitle: z
     .string()
     .trim()
@@ -297,6 +315,10 @@ function adminPayload(data: ParsedSettings) {
   };
 }
 
+function adminVisibilityPayload(data: ParsedSettings) {
+  return { admin_menu_visibility: data.adminMenuVisibility };
+}
+
 function performancePayload(data: ParsedSettings) {
   return {
     catalog_per_page: data.catalogPerPage,
@@ -359,6 +381,7 @@ function insertPayload(data: ParsedSettings) {
     ...contactPayload(data),
     ...locationThemePayload(data),
     ...adminPayload(data),
+    ...adminVisibilityPayload(data),
     ...aboutPayload(data),
     ...heroCopyPayload(data),
     ...contentPayload(data),
@@ -375,6 +398,10 @@ export async function saveSiteSettings(
 
   const normalized: SiteSettingsInput = {
     ...input,
+    adminMenuVisibility: {
+      ...DEFAULT_ADMIN_MENU_VISIBILITY,
+      ...(input.adminMenuVisibility ?? {}),
+    },
     url: normalizeSiteUrl(input.url),
     whatsapp: normalizeWhatsApp(input.whatsapp),
     aboutStats: input.aboutStats.filter(
@@ -402,6 +429,7 @@ export async function saveSiteSettings(
     ...contactPayload(data),
     ...locationThemePayload(data),
     ...adminPayload(data),
+    ...adminVisibilityPayload(data),
     ...aboutPayload(data),
     ...heroCopyPayload(data),
     ...contentPayload(data),
@@ -412,6 +440,7 @@ export async function saveSiteSettings(
     ...contactPayload(data),
     ...locationThemePayload(data),
     ...adminPayload(data),
+    ...adminVisibilityPayload(data),
     ...aboutPayload(data),
     ...heroCopyPayload(data),
     ...contentPayload(data),
@@ -421,6 +450,7 @@ export async function saveSiteSettings(
     ...contactPayload(data),
     ...locationThemePayload(data),
     ...adminPayload(data),
+    ...adminVisibilityPayload(data),
     ...aboutPayload(data),
     ...heroCopyPayload(data),
     ...contentPayload(data),
@@ -429,6 +459,7 @@ export async function saveSiteSettings(
     ...contactPayload(data),
     ...locationThemePayload(data),
     ...adminPayload(data),
+    ...adminVisibilityPayload(data),
     ...heroCopyPayload(data),
   };
   const updateBase = contactPayload(data);
