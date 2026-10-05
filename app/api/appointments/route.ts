@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { SITE_LOCALE, SITE_TIMEZONE } from "@/lib/site-locale";
 import { headers } from "next/headers";
+import { authorize } from "@/lib/auth";
 import { rateLimit } from "@/lib/rate-limit";
 import { appointmentSchema } from "@/lib/validation";
 import { createAdminClient } from "@/lib/supabase/admin";
@@ -160,6 +161,11 @@ export async function POST(request: Request) {
 }
 
 export async function GET(request: Request) {
+  const session = await authorize();
+  if (!session) {
+    return NextResponse.json({ error: "No autorizado." }, { status: 401 });
+  }
+
   const { searchParams } = new URL(request.url);
   const from = searchParams.get("from");
   const to = searchParams.get("to");

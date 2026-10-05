@@ -1,5 +1,6 @@
 import type { Metadata, Viewport } from "next";
 import { Inter, Montserrat } from "next/font/google";
+import type { CSSProperties } from "react";
 import { getSiteSettings } from "@/lib/site-settings";
 import { site } from "@/lib/site";
 import "./globals.css";
@@ -22,10 +23,21 @@ function metadataBaseUrl(raw: string): URL {
   }
 }
 
+function readableTextColor(hex: string): string {
+  const match = /^#([0-9a-f]{6})$/i.exec(hex);
+  if (!match) return "#ffffff";
+  const [r, g, b] = [0, 2, 4].map((offset) =>
+    Number.parseInt(match[1].slice(offset, offset + 2), 16) / 255
+  );
+  const channel = (value: number) =>
+    value <= 0.03928 ? value / 12.92 : ((value + 0.055) / 1.055) ** 2.4;
+  const luminance = 0.2126 * channel(r) + 0.7152 * channel(g) + 0.0722 * channel(b);
+  return luminance > 0.42 ? "#191c1d" : "#ffffff";
+}
+
 export const viewport: Viewport = {
   width: "device-width",
   initialScale: 1,
-  themeColor: "#506600",
   viewportFit: "cover",
 };
 
@@ -92,8 +104,8 @@ export default async function RootLayout({ children }: LayoutProps<"/">) {
     address: {
       "@type": "PostalAddress",
       streetAddress: settings.address.line1,
-      addressLocality: settings.address.line1,
-      addressCountry: "HN",
+      addressLocality: settings.address.city,
+      addressCountry: settings.address.country,
     },
   };
   const websiteJsonLd = {
@@ -107,14 +119,35 @@ export default async function RootLayout({ children }: LayoutProps<"/">) {
       "query-input": "required name=search_term_string",
     },
   };
+  const themeStyle = {
+    "--color-primary": settings.primaryColor,
+    "--color-surface-tint": settings.primaryColor,
+    "--color-primary-container": settings.accentColor,
+    "--color-primary-fixed": settings.accentColor,
+    "--color-primary-fixed-dim": settings.accentColor,
+    "--color-on-primary": readableTextColor(settings.primaryColor),
+    "--color-on-primary-container": readableTextColor(settings.accentColor),
+    "--color-on-primary-fixed": readableTextColor(settings.accentColor),
+    "--color-secondary": settings.adminColor,
+    "--color-inverse-surface": settings.adminColor,
+    "--color-on-secondary": readableTextColor(settings.adminColor),
+    "--color-inverse-on-surface": readableTextColor(settings.adminColor),
+    "--color-background": settings.backgroundColor,
+    "--color-surface": settings.backgroundColor,
+    "--color-surface-bright": settings.backgroundColor,
+    "--color-on-background": readableTextColor(settings.backgroundColor),
+    "--color-on-surface": readableTextColor(settings.backgroundColor),
+  } as CSSProperties & Record<`--${string}`, string>;
   return (
     <html
       lang="es"
       data-scroll-behavior="smooth"
       data-animations={settings.enableAnimations ? "on" : "off"}
       className={`${inter.variable} ${montserrat.variable} h-full antialiased`}
+      style={themeStyle}
     >
       <head>
+        <meta name="theme-color" content={settings.primaryColor} />
         <link rel="preconnect" href="https://fonts.googleapis.com" />
         <link rel="preconnect" href="https://fonts.gstatic.com" crossOrigin="anonymous" />
         <link
