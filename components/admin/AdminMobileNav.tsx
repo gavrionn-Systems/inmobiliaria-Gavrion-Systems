@@ -176,9 +176,11 @@ export default function AdminMobileNav({
         )}
 
         <nav className="flex flex-col py-4 flex-1 overflow-y-auto" aria-label="Admin móvil">
-          <p className="px-6 pb-2 font-label-sm text-label-sm text-surface-variant uppercase tracking-wider">
-            {menuLabel}
-          </p>
+          {menuLabel ? (
+            <p className="px-6 pb-2 font-label-sm text-label-sm text-surface-variant uppercase tracking-wider">
+              {menuLabel}
+            </p>
+          ) : null}
           {items.map((item) => (
             <Link
               key={item.key}

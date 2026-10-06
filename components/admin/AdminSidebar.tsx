@@ -97,14 +97,16 @@ export default function AdminSidebar({
       ) : null}
 
       <nav className="flex flex-col py-5 flex-1" aria-label="Administración">
-        <div className="px-6 pb-3 flex items-center gap-2">
-          <span aria-hidden="true" className="material-symbols-outlined text-primary-fixed text-lg">
-            dashboard
-          </span>
-          <p className="font-label-sm text-label-sm text-surface-variant uppercase tracking-[0.16em]">
-            {menuLabel}
-          </p>
-        </div>
+        {menuLabel ? (
+          <div className="px-6 pb-3 flex items-center gap-2">
+            <span aria-hidden="true" className="material-symbols-outlined text-primary-fixed text-lg">
+              dashboard
+            </span>
+            <p className="font-label-sm text-label-sm text-surface-variant uppercase tracking-[0.16em]">
+              {menuLabel}
+            </p>
+          </div>
+        ) : null}
 
         <div className="flex flex-col gap-1 px-3">
           {items.map((item) => {
