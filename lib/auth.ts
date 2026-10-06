@@ -136,6 +136,7 @@ async function verifySupabaseCredentials(
   if (profileError || !profile?.is_active) return null;
   if (
     profile.role !== "template_admin" &&
+    profile.role !== "designer" &&
     profile.role !== "admin" &&
     profile.role !== "agente"
   ) return null;

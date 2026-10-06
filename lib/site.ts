@@ -36,6 +36,11 @@ export const adminNav = [
   { key: "configuracion", label: "Configuración", href: "/admin/configuracion", icon: "settings" },
 ] as const;
 
+export const platformNav = [
+  { key: "plataforma", label: "Panel general", href: "/admin/plataforma", icon: "space_dashboard" },
+  { key: "configuracion", label: "Configuración", href: "/admin/configuracion", icon: "settings" },
+] as const;
+
 export const crmNav = [
   { key: "inbox", label: "Inbox", href: "/admin/crm/inbox", icon: "inbox" },
   { key: "calendario", label: "Calendario", href: "/admin/crm/calendario", icon: "calendar_month" },

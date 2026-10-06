@@ -3,7 +3,7 @@
  *  Usado por proxy.ts (Edge) y server actions (Node).
  */
 
-export type DemoRole = "template_admin" | "admin" | "agente";
+export type DemoRole = "template_admin" | "designer" | "admin" | "agente";
 
 /** Rutas que requieren rol admin. Sincroniza con lib/site.ts adminNav/crmNav. */
 export const ADMIN_ONLY_PATH_PREFIXES = [
@@ -27,7 +27,7 @@ export const PERMISSIONS = {
   "categories:manage": ["admin"],
   "locations:manage": ["admin"],
   "team:manage": ["admin"],
-  "site-settings:manage": ["template_admin", "admin"],
+  "site-settings:manage": ["template_admin", "designer", "admin"],
   // CRM
   "crm:read": ["admin", "agente"],
   "crm:write": ["admin", "agente"],
@@ -43,15 +43,19 @@ export function isAdminRole(role: string): boolean {
 }
 
 export function isDemoRole(role: string): role is DemoRole {
-  return role === "template_admin" || role === "admin" || role === "agente";
+  return role === "template_admin" || role === "designer" || role === "admin" || role === "agente";
 }
 
 export function isTemplateAdminRole(role: string): boolean {
   return role === "template_admin";
 }
 
+export function isDesignerRole(role: string): boolean {
+  return role === "designer";
+}
+
 export function isPlatformRole(role: string): boolean {
-  return isAdminRole(role) || isTemplateAdminRole(role);
+  return isAdminRole(role) || isTemplateAdminRole(role) || isDesignerRole(role);
 }
 
 export function can(allowed: readonly DemoRole[], role: string): boolean {
@@ -65,5 +69,12 @@ export function isAdminOnlyPath(pathname: string): boolean {
 }
 
 export function isTemplateOnlyPath(pathname: string): boolean {
-  return pathname === "/admin/configuracion" || pathname.startsWith("/admin/configuracion/");
+  return (
+    pathname === "/admin/configuracion" ||
+    pathname.startsWith("/admin/configuracion/")
+  );
+}
+
+export function isPlatformOnlyPath(pathname: string): boolean {
+  return pathname === "/admin/plataforma" || pathname.startsWith("/admin/plataforma/");
 }

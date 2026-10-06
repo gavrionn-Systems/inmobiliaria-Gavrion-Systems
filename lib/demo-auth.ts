@@ -50,7 +50,8 @@ export const DEMO_EMPLOYEE = {
 } as const satisfies { name: string; email: string; role: DemoRole };
 
 export const ROLE_LABELS: Record<DemoRole, string> = {
-  template_admin: "Administrador de plantilla",
+  template_admin: "Administrador general",
+  designer: "Diseñador",
   admin: "Administrador",
   agente: "Empleado",
 };
@@ -61,8 +62,10 @@ export {
   ADMIN_ONLY_PATH_PREFIXES,
   isAdminOnlyPath,
   isAdminRole,
+  isDesignerRole,
   isDemoRole,
   isPlatformRole,
+  isPlatformOnlyPath,
   isTemplateAdminRole,
   isTemplateOnlyPath,
 } from "./rbac";
