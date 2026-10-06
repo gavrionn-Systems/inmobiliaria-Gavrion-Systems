@@ -7,10 +7,11 @@ import {
   ROLE_LABELS,
   adminLoginPath,
   adminPanelSlug,
+  isDesignerRole,
   isAdminRole,
   isTemplateAdminRole,
 } from "@/lib/demo-auth";
-import { adminNav } from "@/lib/site";
+import { adminNav, platformNav } from "@/lib/site";
 import { getSiteSettings } from "@/lib/site-settings";
 
 export const dynamic = "force-dynamic";
@@ -33,7 +34,9 @@ export default async function AdminPanelLayout({
     "configuracion",
   ]);
   const nav = isTemplateAdminRole(role)
-    ? adminNav.filter((item) => item.key === "configuracion")
+    ? platformNav
+    : isDesignerRole(role)
+      ? adminNav.filter((item) => item.key === "configuracion")
     : isAdminRole(role)
       ? adminNav.filter(
           (item) =>
@@ -46,6 +49,8 @@ export default async function AdminPanelLayout({
         );
   const panelTitle = isTemplateAdminRole(role)
     ? "Configuración de plantilla"
+    : isDesignerRole(role)
+      ? "Configuración de empresa"
     : isAdminRole(role)
       ? "Panel Admin"
       : "Panel del equipo";
@@ -58,7 +63,7 @@ export default async function AdminPanelLayout({
         items={[...nav]}
         title={panelTitle}
         panelLabel={settings.adminPanelLabel}
-        menuLabel={settings.adminMenuLabel}
+        menuLabel={isTemplateAdminRole(role) || isDesignerRole(role) ? "" : settings.adminMenuLabel}
         logoUrl={settings.logoUrl}
         siteName={settings.name}
         userName={session.user.name}
@@ -73,7 +78,7 @@ export default async function AdminPanelLayout({
           items={[...nav]}
           title={panelTitle}
           panelLabel={settings.adminPanelLabel}
-          menuLabel={settings.adminMenuLabel}
+          menuLabel={isTemplateAdminRole(role) || isDesignerRole(role) ? "" : settings.adminMenuLabel}
           logoUrl={settings.logoUrl}
           siteName={settings.name}
           userName={session?.user.name}
