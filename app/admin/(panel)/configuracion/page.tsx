@@ -1,6 +1,6 @@
 import { redirect } from "next/navigation";
 import { getSession } from "@/lib/auth";
-import { isAdminRole, isTemplateAdminRole } from "@/lib/demo-auth";
+import { isAdminRole, isDesignerRole, isTemplateAdminRole } from "@/lib/demo-auth";
 import { getSiteSettings } from "@/lib/site-settings";
 import type { SiteSettingsInput } from "@/lib/site-settings-actions";
 import SiteSettingsForm from "./SiteSettingsForm";
@@ -32,7 +32,7 @@ function padValues(
 
 export default async function AdminConfiguracionPage() {
   const session = await getSession();
-  if (!session || (!isAdminRole(session.user.role) && !isTemplateAdminRole(session.user.role))) {
+  if (!session || (!isAdminRole(session.user.role) && !isTemplateAdminRole(session.user.role) && !isDesignerRole(session.user.role))) {
     redirect("/admin?error=forbidden");
   }
 
