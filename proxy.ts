@@ -6,6 +6,8 @@ import {
   adminPanelSlug,
   isAdminOnlyPath,
   isAdminRole,
+  isDesignerRole,
+  isPlatformOnlyPath,
   isTemplateAdminRole,
   isTemplateOnlyPath,
 } from "@/lib/demo-auth";
@@ -45,7 +47,7 @@ export async function proxy(request: NextRequest) {
     }
     const inner = pathname.slice(secretPrefix.length) || "/";
     const targetPath = `${ADMIN_ROUTE_PREFIX}${inner === "/" ? "" : inner}`;
-    if (session && isTemplateAdminRole(session.role) && !isTemplateOnlyPath(targetPath)) {
+    if (session && ((isTemplateAdminRole(session.role) && !isTemplateOnlyPath(targetPath) && !isPlatformOnlyPath(targetPath)) || (isDesignerRole(session.role) && !isTemplateOnlyPath(targetPath)))) {
       return NextResponse.redirect(new URL(`${ADMIN_ROUTE_PREFIX}/configuracion`, request.url));
     }
     const url = new URL(`${ADMIN_ROUTE_PREFIX}${inner}`, request.url);
@@ -62,7 +64,7 @@ export async function proxy(request: NextRequest) {
     return NextResponse.redirect(new URL(ADMIN_ROUTE_PREFIX, request.url));
   }
 
-  if (isTemplateAdminRole(session.role) && !isTemplateOnlyPath(pathname)) {
+  if ((isTemplateAdminRole(session.role) && !isTemplateOnlyPath(pathname) && !isPlatformOnlyPath(pathname)) || (isDesignerRole(session.role) && !isTemplateOnlyPath(pathname))) {
     return NextResponse.redirect(new URL(`${ADMIN_ROUTE_PREFIX}/configuracion`, request.url));
   }
 
