@@ -270,7 +270,7 @@ function CompanyForm({ company, onSubmit, onCancel }: { company: Company | null;
     <div className="grid grid-cols-2 gap-2"><Field name="templateVersion" label="Versión actual" defaultValue={company?.template_version ?? "base"} /><Field name="targetTemplateVersion" label="Versión objetivo" defaultValue={company?.target_template_version ?? "base"} /></div>
     <label className="block text-sm text-secondary">Notas<textarea name="notes" defaultValue={company?.notes} className="mt-1 min-h-20 w-full rounded-lg border border-outline-variant bg-surface px-3 py-2 text-on-surface" /></label>
     {company ? <label className="block text-sm text-secondary">Estado<select name="status" defaultValue={company.status} className="mt-1 w-full rounded-lg border border-outline-variant bg-surface px-3 py-2 text-on-surface"><option value="active">Activa</option><option value="paused">Pausada</option><option value="archived">Archivada</option></select></label> : null}
-    <p className="text-xs text-secondary">La service role key se cifra en el servidor con PLATFORM_ENCRYPTION_KEY y nunca se devuelve al navegador.</p>
+  <p className="text-xs text-secondary">La service role key es opcional al editar datos normales. Si la ingresas, se cifra únicamente en el servidor con PLATFORM_ENCRYPTION_KEY (o AUTH_SECRET mientras completas esa variable) y nunca se devuelve al navegador.</p>
     <div className="flex gap-2"><button className="rounded-lg bg-primary px-4 py-2 font-semibold text-on-primary" type="submit">Guardar empresa</button>{company ? <button className="rounded-lg border border-outline-variant px-4 py-2 text-secondary" type="button" onClick={onCancel}>Cancelar</button> : null}</div>
   </form>;
 }
