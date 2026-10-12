@@ -175,7 +175,7 @@ export default function AdminMobileNav({
           </div>
         )}
 
-        <nav className="flex flex-col py-4 flex-1 overflow-y-auto" aria-label="Admin móvil">
+        <nav className="min-h-0 flex flex-1 flex-col overflow-y-auto overscroll-contain py-4" aria-label="Admin móvil">
           {menuLabel ? (
             <p className="px-6 pb-2 font-label-sm text-label-sm text-surface-variant uppercase tracking-wider">
               {menuLabel}

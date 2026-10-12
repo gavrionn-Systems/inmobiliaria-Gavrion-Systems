@@ -48,7 +48,7 @@ export default function AdminSidebar({
   const visibleHref = (href: string) => `${panelPath}${href.replace(/^\/admin/, "")}`;
 
   return (
-    <aside className="w-72 bg-secondary hidden md:flex flex-col sticky top-0 h-screen border-r border-white/10">
+    <aside className="min-h-0 w-72 bg-secondary hidden md:flex flex-col sticky top-0 h-screen border-r border-white/10">
       <Link
         href={panelPath}
         aria-label={siteName}
@@ -96,7 +96,7 @@ export default function AdminSidebar({
         </div>
       ) : null}
 
-      <nav className="flex flex-col py-5 flex-1" aria-label="Administración">
+      <nav className="min-h-0 flex flex-1 flex-col overflow-y-auto overscroll-contain py-5" aria-label="Administración">
         {menuLabel ? (
           <div className="px-6 pb-3 flex items-center gap-2">
             <span aria-hidden="true" className="material-symbols-outlined text-primary-fixed text-lg">
