@@ -5,7 +5,7 @@ import { useState } from "react";
 
 export default function AdminLoginForm() {
   const router = useRouter();
-  const [email, setEmail] = useState("");
+  const [identifier, setIdentifier] = useState("");
   const [password, setPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -20,7 +20,7 @@ export default function AdminLoginForm() {
       const res = await fetch("/api/auth/login", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ email, password }),
+        body: JSON.stringify({ identifier, password }),
       });
       if (!res.ok) {
         const data = await res.json().catch(() => null);
@@ -48,15 +48,15 @@ export default function AdminLoginForm() {
       )}
       <label className="flex flex-col">
         <span className="font-label-sm text-label-sm text-secondary mb-1">
-          Email
+          Usuario o email
         </span>
         <input
-          type="email"
-          name="email"
+          type="text"
+          name="identifier"
           required
           autoComplete="username"
-          value={email}
-          onChange={(e) => setEmail(e.target.value)}
+          value={identifier}
+          onChange={(e) => setIdentifier(e.target.value)}
           className="bg-surface rounded border border-outline-variant px-3 py-2.5 font-body-md text-body-md text-on-surface placeholder:text-secondary outline-none focus:border-primary"
         />
       </label>
