@@ -67,8 +67,10 @@ function Field({
 
 export default function SiteSettingsForm({
   initial,
+  isCompanyAdmin = false,
 }: {
   initial: SiteSettingsInput;
+  isCompanyAdmin?: boolean;
 }) {
   const router = useRouter();
   const heroInputRef = useRef<HTMLInputElement>(null);
@@ -80,6 +82,9 @@ export default function SiteSettingsForm({
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState<string | null>(null);
   const [activeSection, setActiveSection] = useState<EditorSectionId>("identity");
+  const visibleSections = isCompanyAdmin
+    ? editorSections.filter((section) => !["admin", "theme", "search", "performance", "cache", "experience", "indexing"].includes(section.id))
+    : editorSections;
 
   function set<K extends keyof SiteSettingsInput>(
     key: K,
@@ -248,7 +253,7 @@ export default function SiteSettingsForm({
         className="sticky top-0 z-10 -mx-1 overflow-x-auto rounded-lg border border-outline-variant bg-surface-container-low p-1 shadow-sm"
       >
         <div role="tablist" className="flex min-w-max gap-1">
-          {editorSections.map((section) => (
+          {visibleSections.map((section) => (
             <button
               key={section.id}
               type="button"

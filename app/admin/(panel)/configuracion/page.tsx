@@ -118,7 +118,7 @@ export default async function AdminConfiguracionPage() {
           logo, contenido, panel interno y configuración — todo sin tocar código.
         </p>
       </header>
-      <SiteSettingsForm initial={initial} />
+      <SiteSettingsForm initial={initial} isCompanyAdmin={isAdminRole(session.user.role)} />
     </>
   );
 }
