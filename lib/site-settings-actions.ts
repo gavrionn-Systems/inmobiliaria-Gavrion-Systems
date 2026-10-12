@@ -4,9 +4,10 @@ import { revalidatePath, revalidateTag } from "next/cache";
 import { z } from "zod";
 import { auditLog } from "@/lib/audit";
 import { getSession } from "@/lib/auth";
-import { isPlatformRole } from "@/lib/rbac";
+import { isAdminRole, isPlatformRole } from "@/lib/rbac";
 import {
   DEFAULT_ADMIN_MENU_VISIBILITY,
+  getSiteSettings,
   invalidateSiteSettingsMemory,
   type AdminMenuVisibility,
 } from "@/lib/site-settings";
@@ -243,7 +244,7 @@ function normalizeSiteUrl(value: string): string {
   return `https://${trimmed}`;
 }
 
-async function requireAdmin(): Promise<SiteSettingsActionResult | null> {
+async function requireAdmin(): Promise<{ role: string } | SiteSettingsActionResult> {
   const session = await getSession();
   if (!session) {
     return { ok: false, error: "No autorizado. Inicie sesión nuevamente." };
@@ -251,7 +252,7 @@ async function requireAdmin(): Promise<SiteSettingsActionResult | null> {
   if (!isPlatformRole(session.user.role)) {
     return { ok: false, error: "No tiene permisos para esta acción." };
   }
-  return null;
+  return { role: session.user.role };
 }
 
 function revalidateSite() {
@@ -393,8 +394,9 @@ function insertPayload(data: ParsedSettings) {
 export async function saveSiteSettings(
   input: SiteSettingsInput
 ): Promise<SiteSettingsActionResult> {
-  const denied = await requireAdmin();
-  if (denied) return denied;
+  const authorization = await requireAdmin();
+  if ("ok" in authorization) return authorization;
+  const isCompanyAdmin = isAdminRole(authorization.role);
 
   const normalized: SiteSettingsInput = {
     ...input,
@@ -422,7 +424,42 @@ export async function saveSiteSettings(
     };
   }
 
-  const data = parsed.data;
+  let data = parsed.data;
+  if (isCompanyAdmin) {
+    // Estos valores no se muestran al administrador de empresa y tampoco se
+    // aceptan desde una petición manipulada. Solo el diseñador o el
+    // administrador general pueden modificarlos.
+    const current = await getSiteSettings();
+    data = {
+      ...data,
+      adminLoginTitle: current.adminLoginTitle,
+      adminLoginSubtitle: current.adminLoginSubtitle,
+      adminPanelLabel: current.adminPanelLabel,
+      adminWelcomeTitle: current.adminWelcomeTitle,
+      adminWelcomeSubtitle: current.adminWelcomeSubtitle,
+      adminMenuLabel: current.adminMenuLabel,
+      adminMenuVisibility: current.adminMenuVisibility,
+      primaryColor: current.primaryColor,
+      accentColor: current.accentColor,
+      adminColor: current.adminColor,
+      backgroundColor: current.backgroundColor,
+      indexable: current.indexable,
+      priceStep: current.priceStep,
+      priceFloor: current.priceFloor,
+      priceCeilingOverride: current.priceCeilingOverride,
+      catalogPerPage: current.catalogPerPage,
+      featuredLimit: current.featuredLimit,
+      relatedLimit: current.relatedLimit,
+      revalidateHome: current.revalidateHome,
+      revalidateCatalog: current.revalidateCatalog,
+      revalidateProperty: current.revalidateProperty,
+      imageQuality: current.imageQuality,
+      heroPriority: current.heroPriority,
+      enableAnimations: current.enableAnimations,
+      searchDebounceMs: current.searchDebounceMs,
+      priceSliderDebounceMs: current.priceSliderDebounceMs,
+    };
+  }
   const supabase = createAdminClient();
 
   const updateFull = {
