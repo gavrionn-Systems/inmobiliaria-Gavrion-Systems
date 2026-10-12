@@ -14,6 +14,7 @@ import {
   updateManagedCompany,
   updateManagedUser,
 } from "@/lib/platform-actions";
+import { isInternalUserEmail, usernameFromStoredEmail } from "@/lib/user-identifiers";
 
 type Company = {
   id: string;
@@ -118,7 +119,7 @@ export default function PlatformControlPanel({ companies, users, runs, audit, re
     const input = {
       companyId: String(formData.get("companyId") ?? ""),
       fullName: String(formData.get("fullName") ?? ""),
-      email: String(formData.get("email") ?? ""),
+      username: String(formData.get("username") ?? ""),
       role: String(formData.get("role") ?? "agente"),
       temporaryPassword: String(formData.get("temporaryPassword") ?? "") || undefined,
       notes: String(formData.get("notes") ?? ""),
@@ -230,7 +231,7 @@ export default function PlatformControlPanel({ companies, users, runs, audit, re
             {users.length === 0 ? <Empty text="Todavía no hay usuarios registrados." /> : users.map((user) => {
               const company = companies.find((item) => item.id === user.company_id);
               return <article key={user.id} className="flex flex-wrap items-center justify-between gap-4 rounded-xl border border-outline-variant bg-surface-container-low p-5">
-                <div><h3 className="font-label-md font-semibold text-on-surface">{user.full_name}</h3><p className="text-sm text-secondary">{user.email} · {company?.name ?? "Empresa eliminada"}</p><span className="mt-2 inline-flex rounded-full bg-surface-container-highest px-2.5 py-1 text-xs text-secondary">{roleLabels[user.role]} · {user.is_active ? "Activo" : "Inactivo"}</span></div>
+                <div><h3 className="font-label-md font-semibold text-on-surface">{user.full_name}</h3><p className="text-sm text-secondary">Usuario: {isInternalUserEmail(user.email) ? usernameFromStoredEmail(user.email) : user.email} · {company?.name ?? "Empresa eliminada"}</p><span className="mt-2 inline-flex rounded-full bg-surface-container-highest px-2.5 py-1 text-xs text-secondary">{roleLabels[user.role]} · {user.is_active ? "Activo" : "Inactivo"}</span></div>
                 <div className="flex flex-wrap gap-2"><button type="button" onClick={() => setEditingUser(user)} className="rounded-lg border border-outline-variant px-3 py-2 text-sm text-secondary hover:bg-surface-container-high">Editar</button><button type="button" onClick={() => resetUser(user.id)} className="rounded-lg border border-outline-variant px-3 py-2 text-sm text-secondary hover:bg-surface-container-high">Restablecer contraseña</button>{user.is_active ? <button type="button" onClick={() => archiveUser(user.id)} className="rounded-lg border border-error px-3 py-2 text-sm text-error hover:bg-error-container">Desactivar</button> : null}<button type="button" onClick={() => deleteUser(user.id)} className="rounded-lg border border-error px-3 py-2 text-sm text-error hover:bg-error-container">Eliminar</button></div>
               </article>;
             })}
@@ -279,11 +280,11 @@ function UserForm({ user, companies, onSubmit, onCancel }: { user: ManagedUser |
   return <form action={onSubmit} className="space-y-4 rounded-xl border border-outline-variant bg-surface-container-low p-5">
     <h2 className="font-headline-md text-on-surface">{user ? "Editar usuario" : "Nueva cuenta"}</h2>
     <label className="block text-sm text-secondary">Empresa<select name="companyId" defaultValue={user?.company_id ?? companies[0]?.id ?? ""} disabled={Boolean(user)} required className="mt-1 w-full rounded-lg border border-outline-variant bg-surface px-3 py-2 text-on-surface"><option value="">Seleccione una empresa</option>{companies.map((company) => <option key={company.id} value={company.id}>{company.name}</option>)}</select></label>
-    <Field name="fullName" label="Nombre completo" defaultValue={user?.full_name} required /><Field name="email" label="Correo" type="email" defaultValue={user?.email} required />
+    <Field name="fullName" label="Nombre completo" defaultValue={user?.full_name} required /><Field name="username" label="Usuario" defaultValue={user ? (isInternalUserEmail(user.email) ? usernameFromStoredEmail(user.email) : user.email.split("@")[0]) : ""} required />
     {!user ? <Field name="temporaryPassword" label="Contraseña temporal (opcional)" type="password" /> : null}
     <label className="block text-sm text-secondary">Rol<select name="role" defaultValue={user?.role ?? "company_admin"} className="mt-1 w-full rounded-lg border border-outline-variant bg-surface px-3 py-2 text-on-surface"><option value="company_admin">Administrador de empresa</option><option value="designer">Diseñador</option><option value="agente">Agente</option></select></label>
     <label className="block text-sm text-secondary">Notas<textarea name="notes" defaultValue={user?.notes} className="mt-1 min-h-20 w-full rounded-lg border border-outline-variant bg-surface px-3 py-2 text-on-surface" /></label>
-    <p className="text-xs text-secondary">La contraseña se muestra una sola vez después de crear o restablecer la cuenta.</p>
+    <p className="text-xs text-secondary">No se necesita correo electrónico. El usuario iniciará sesión con este nombre de usuario y la contraseña. La contraseña se muestra una sola vez después de crear o restablecer la cuenta.</p>
     <div className="flex gap-2"><button className="rounded-lg bg-primary px-4 py-2 font-semibold text-on-primary" type="submit">Guardar usuario</button>{user ? <button className="rounded-lg border border-outline-variant px-4 py-2 text-secondary" type="button" onClick={onCancel}>Cancelar</button> : null}</div>
   </form>;
 }
