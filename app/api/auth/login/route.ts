@@ -15,7 +15,9 @@ export async function POST(request: NextRequest) {
   }
 
   const body = await request.json().catch(() => null);
-  const email = typeof body?.email === "string" ? body.email : "";
+  const email = typeof body?.identifier === "string"
+    ? body.identifier
+    : typeof body?.email === "string" ? body.email : "";
   const password = typeof body?.password === "string" ? body.password : "";
 
   const user = await authenticateUser(email, password);
