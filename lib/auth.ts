@@ -12,6 +12,7 @@ import {
 } from "./demo-auth";
 import { isDemoRole } from "./rbac";
 import { createAdminClient } from "./supabase/admin";
+import { loginIdentifierToEmail } from "./user-identifiers";
 import {
   sessionSecret,
   signSessionToken,
@@ -107,12 +108,14 @@ export function verifyCredentials(
 }
 
 async function verifySupabaseCredentials(
-  email: string,
+  identifier: string,
   password: string
 ): Promise<SessionUser | null> {
   const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
   const anonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
   if (!url || !anonKey || !password) return null;
+  const email = loginIdentifierToEmail(identifier);
+  if (!email) return null;
 
   const authClient = createClient(url, anonKey, {
     auth: {

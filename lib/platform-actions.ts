@@ -8,6 +8,7 @@ import { getSession } from "@/lib/auth";
 import { isTemplateAdminRole } from "@/lib/demo-auth";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { decryptPlatformSecret, encryptPlatformSecret } from "@/lib/platform-security";
+import { isInternalUserEmail, usernameToInternalEmail } from "@/lib/user-identifiers";
 
 export type PlatformActionResult =
   | { ok: true; id?: string; temporaryPassword?: string; message?: string }
@@ -31,7 +32,8 @@ const companySchema = z.object({
 const userSchema = z.object({
   companyId: z.uuid(),
   fullName: z.string().trim().min(2).max(120),
-  email: z.email().max(160),
+  username: z.string().trim().toLowerCase().regex(/^[a-z0-9][a-z0-9._-]{2,59}$/, "Use un usuario de 3 a 60 caracteres: letras, números, punto, guion o guion bajo."),
+  email: z.union([z.email().max(160), z.literal("")]).optional().default(""),
   role: z.enum(["company_admin", "designer", "agente"]),
   temporaryPassword: z.string().min(8).max(72).optional(),
   notes: z.string().trim().max(2000),
@@ -152,14 +154,15 @@ export async function createManagedUser(input: unknown): Promise<PlatformActionR
   try { company = await getCompany(data.companyId); } catch (error) { return { ok: false, error: error instanceof Error ? error.message : "Empresa no encontrada." }; }
   let remote;
   try { remote = remoteClient(company); } catch (error) { return { ok: false, error: error instanceof Error ? error.message : "Conexión no configurada." }; }
+  const email = data.email?.trim().toLowerCase() || usernameToInternalEmail(data.username);
   const password = data.temporaryPassword || generatedPassword();
-  const created = await remote.auth.admin.createUser({ email: data.email.trim().toLowerCase(), password, email_confirm: true, user_metadata: { full_name: data.fullName } });
+  const created = await remote.auth.admin.createUser({ email, password, email_confirm: true, user_metadata: { full_name: data.fullName, username: data.username } });
   if (created.error || !created.data.user) return { ok: false, error: created.error?.message ?? "No se pudo crear la cuenta externa." };
-  const { error: profileError } = await remote.from("profiles").upsert({ id: created.data.user.id, full_name: data.fullName, email: data.email.trim().toLowerCase(), role: remoteRole(data.role), is_active: true }, { onConflict: "id" });
+  const { error: profileError } = await remote.from("profiles").upsert({ id: created.data.user.id, full_name: data.fullName, email, role: remoteRole(data.role), is_active: true }, { onConflict: "id" });
   if (profileError) { await remote.auth.admin.deleteUser(created.data.user.id); return { ok: false, error: "La cuenta se creó, pero no se pudo configurar su perfil." }; }
-  const { data: localUser, error } = await createAdminClient().from("managed_users").insert({ company_id: data.companyId, auth_user_id: created.data.user.id, full_name: data.fullName, email: data.email.trim().toLowerCase(), role: data.role, notes: data.notes }).select("id").single();
-  if (error) { await remote.auth.admin.deleteUser(created.data.user.id); return { ok: false, error: error.code === "23505" ? "Ese email ya está registrado para la empresa." : "No se pudo registrar el usuario en el panel general." }; }
-  await audit({ actorId: auth.userId, companyId: data.companyId, action: "user.created", entityType: "managed_user", entityId: localUser.id, metadata: { role: data.role, email: data.email } });
+  const { data: localUser, error } = await createAdminClient().from("managed_users").insert({ company_id: data.companyId, auth_user_id: created.data.user.id, full_name: data.fullName, email, role: data.role, notes: data.notes }).select("id").single();
+  if (error) { await remote.auth.admin.deleteUser(created.data.user.id); return { ok: false, error: error.code === "23505" ? "Ese usuario o email ya está registrado para la empresa." : "No se pudo registrar el usuario en el panel general." }; }
+  await audit({ actorId: auth.userId, companyId: data.companyId, action: "user.created", entityType: "managed_user", entityId: localUser.id, metadata: { role: data.role, username: data.username } });
   revalidatePlatform();
   return { ok: true, id: localUser.id, temporaryPassword: password, message: "Cuenta creada. La contraseña temporal solo se muestra ahora." };
 }
@@ -172,13 +175,15 @@ export async function updateManagedUser(id: string, input: unknown): Promise<Pla
   const { data: current, error: currentError } = await createAdminClient().from("managed_users").select("*, managed_companies(*)").eq("id", id).single();
   if (currentError || !current) return { ok: false, error: "Usuario no encontrado." };
   const company = Array.isArray(current.managed_companies) ? current.managed_companies[0] : current.managed_companies;
+  const requestedEmail = parsed.data.email?.trim().toLowerCase();
+  const nextEmail = requestedEmail || (isInternalUserEmail(current.email) ? usernameToInternalEmail(parsed.data.username) : current.email);
   try {
     const remote = remoteClient(company);
-    if (current.auth_user_id) await remote.auth.admin.updateUserById(current.auth_user_id, { email: parsed.data.email.trim().toLowerCase(), user_metadata: { full_name: parsed.data.fullName } });
-    if (current.auth_user_id) await remote.from("profiles").update({ full_name: parsed.data.fullName, email: parsed.data.email.trim().toLowerCase(), role: remoteRole(parsed.data.role), is_active: parsed.data.isActive }).eq("id", current.auth_user_id);
+    if (current.auth_user_id) await remote.auth.admin.updateUserById(current.auth_user_id, { email: nextEmail, user_metadata: { full_name: parsed.data.fullName, username: parsed.data.username } });
+    if (current.auth_user_id) await remote.from("profiles").update({ full_name: parsed.data.fullName, email: nextEmail, role: remoteRole(parsed.data.role), is_active: parsed.data.isActive }).eq("id", current.auth_user_id);
   } catch (error) { return { ok: false, error: error instanceof Error ? error.message : "No se pudo actualizar la cuenta externa." }; }
-  const { error } = await createAdminClient().from("managed_users").update({ full_name: parsed.data.fullName, email: parsed.data.email.trim().toLowerCase(), role: parsed.data.role, notes: parsed.data.notes, is_active: parsed.data.isActive }).eq("id", id);
-  if (error) return { ok: false, error: "No se pudo actualizar el usuario." };
+  const { error } = await createAdminClient().from("managed_users").update({ full_name: parsed.data.fullName, email: nextEmail, role: parsed.data.role, notes: parsed.data.notes, is_active: parsed.data.isActive }).eq("id", id);
+  if (error) return { ok: false, error: error.code === "23505" ? "Ese usuario o email ya está registrado para la empresa." : "No se pudo actualizar el usuario." };
   await audit({ actorId: auth.userId, companyId: current.company_id, action: "user.updated", entityType: "managed_user", entityId: id });
   revalidatePlatform();
   return { ok: true, id };
