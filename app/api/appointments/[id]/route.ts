@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { getSession } from "@/lib/auth";
+import { authorize } from "@/lib/auth";
 import { appointmentStatusSchema } from "@/lib/validation";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { checkCollision } from "@/lib/appointments";
@@ -10,7 +10,7 @@ export async function PATCH(
   request: Request,
   { params }: { params: Promise<{ id: string }> }
 ) {
-  const session = await getSession();
+  const session = await authorize(["admin", "agente"]);
   if (!session) return NextResponse.json({ error: "No autorizado." }, { status: 401 });
 
   const { id } = await params;
@@ -57,7 +57,7 @@ export async function DELETE(
   _request: Request,
   { params }: { params: Promise<{ id: string }> }
 ) {
-  const session = await getSession();
+  const session = await authorize(["admin", "agente"]);
   if (!session) return NextResponse.json({ error: "No autorizado." }, { status: 401 });
   const { id } = await params;
   const supabase = createAdminClient();
