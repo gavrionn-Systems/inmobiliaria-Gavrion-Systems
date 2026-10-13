@@ -1,6 +1,7 @@
 "use client";
 
 import { useMemo, useState } from "react";
+import { useRouter } from "next/navigation";
 import {
   archiveManagedCompany,
   archiveManagedUser,
@@ -86,10 +87,12 @@ function resultMessage(result: { ok: boolean; error?: string }) {
 }
 
 export default function PlatformControlPanel({ companies, users, runs, audit, releases }: Props) {
+  const router = useRouter();
   const [section, setSection] = useState<"companies" | "users" | "automation" | "audit" | "releases">("companies");
   const [message, setMessage] = useState("");
   const [editingCompany, setEditingCompany] = useState<Company | null>(null);
   const [editingUser, setEditingUser] = useState<ManagedUser | null>(null);
+  const [formRevision, setFormRevision] = useState(0);
   const activeCompanies = useMemo(() => companies.filter((company) => company.status !== "archived"), [companies]);
 
   async function saveCompany(formData: FormData) {
@@ -112,7 +115,11 @@ export default function PlatformControlPanel({ companies, users, runs, audit, re
       ? await updateManagedCompany(editingCompany.id, input)
       : await createManagedCompany(input);
     setMessage(resultMessage(result));
-    if (result.ok) setEditingCompany(null);
+    if (result.ok) {
+      setEditingCompany(null);
+      setFormRevision((value) => value + 1);
+      router.refresh();
+    }
   }
 
   async function saveUser(formData: FormData) {
@@ -128,30 +135,44 @@ export default function PlatformControlPanel({ companies, users, runs, audit, re
       ? await updateManagedUser(editingUser.id, { ...input, isActive: editingUser.is_active })
       : await createManagedUser(input);
     setMessage(resultMessage(result));
-    if (result.ok) setEditingUser(null);
+    if (result.ok) {
+      setEditingUser(null);
+      setFormRevision((value) => value + 1);
+      router.refresh();
+    }
   }
 
   async function archiveCompany(id: string) {
     if (!window.confirm("La empresa quedará archivada y dejará de aparecer como activa. ¿Continuar?")) return;
-    setMessage(resultMessage(await archiveManagedCompany(id)));
+    const result = await archiveManagedCompany(id);
+    setMessage(resultMessage(result));
+    if (result.ok) router.refresh();
   }
 
   async function archiveUser(id: string) {
     if (!window.confirm("El usuario quedará desactivado. ¿Continuar?")) return;
-    setMessage(resultMessage(await archiveManagedUser(id)));
+    const result = await archiveManagedUser(id);
+    setMessage(resultMessage(result));
+    if (result.ok) router.refresh();
   }
 
   async function resetUser(id: string) {
-    setMessage(resultMessage(await resetManagedUserPassword(id)));
+    const result = await resetManagedUserPassword(id);
+    setMessage(resultMessage(result));
+    if (result.ok) router.refresh();
   }
 
   async function deleteUser(id: string) {
     if (!window.confirm("Esta acción elimina la cuenta de la empresa y su registro central. ¿Continuar?")) return;
-    setMessage(resultMessage(await deleteManagedUser(id)));
+    const result = await deleteManagedUser(id);
+    setMessage(resultMessage(result));
+    if (result.ok) router.refresh();
   }
 
   async function checkHealth(id: string) {
-    setMessage(resultMessage(await checkManagedCompanyHealth(id)));
+    const result = await checkManagedCompanyHealth(id);
+    setMessage(resultMessage(result));
+    if (result.ok) router.refresh();
   }
 
   async function runAutomation(formData: FormData) {
@@ -159,11 +180,14 @@ export default function PlatformControlPanel({ companies, users, runs, audit, re
       companyId: String(formData.get("companyId") ?? ""),
       scriptKey: String(formData.get("scriptKey") ?? ""),
     });
-    setMessage(result.ok ? "Tarea puesta en cola. El ejecutor la procesará de forma segura." : result.error ?? "No se pudo poner la tarea en cola.");
+    setMessage(resultMessage(result));
+    if (result.ok) router.refresh();
   }
 
   async function retryAutomation(id: string) {
-    setMessage(resultMessage(await retryPlatformAutomation(id)));
+    const result = await retryPlatformAutomation(id);
+    setMessage(resultMessage(result));
+    if (result.ok) router.refresh();
   }
 
   return (
@@ -220,7 +244,7 @@ export default function PlatformControlPanel({ companies, users, runs, audit, re
               </article>
             ))}
           </section>
-          <CompanyForm company={editingCompany} onSubmit={saveCompany} onCancel={() => setEditingCompany(null)} />
+          <CompanyForm key={`${editingCompany?.id ?? "new-company"}-${formRevision}`} company={editingCompany} onSubmit={saveCompany} onCancel={() => setEditingCompany(null)} />
         </div>
       ) : null}
 
@@ -236,7 +260,7 @@ export default function PlatformControlPanel({ companies, users, runs, audit, re
               </article>;
             })}
           </section>
-          <UserForm user={editingUser} companies={activeCompanies} onSubmit={saveUser} onCancel={() => setEditingUser(null)} />
+          <UserForm key={`${editingUser?.id ?? "new-user"}-${formRevision}`} user={editingUser} companies={activeCompanies} onSubmit={saveUser} onCancel={() => setEditingUser(null)} />
         </div>
       ) : null}
 
