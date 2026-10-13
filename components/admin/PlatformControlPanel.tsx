@@ -218,7 +218,6 @@ export default function PlatformControlPanel({ companies, users, runs, audit, re
     const result = await saveManagedCompanyChatbox(chatboxCompanyId, {
       enabled: formData.has("enabled"),
       welcome: String(formData.get("welcome") ?? ""),
-      color: String(formData.get("color") ?? ""),
       statusMessage: String(formData.get("statusMessage") ?? ""),
       offlineMessage: String(formData.get("offlineMessage") ?? ""),
       position: String(formData.get("position") ?? "right"),
@@ -387,7 +386,7 @@ function ChatboxTutorial() {
           </li>
           <li>
             <h4 className="font-semibold text-on-surface">5. Seleccionar y configurar la empresa</h4>
-            <p className="mt-1 text-secondary">En el selector de la derecha elija la empresa. Espere a que cargue la configuración remota y complete el mensaje de bienvenida, color, posición, nombre de la IA, instrucciones, conocimiento empresarial y mensaje de transferencia. Presione <strong>Guardar chatbox de la empresa</strong>.</p>
+            <p className="mt-1 text-secondary">En el selector de la derecha elija la empresa. Espere a que cargue la configuración remota y complete los mensajes, la posición, el nombre de la IA, las instrucciones, el conocimiento empresarial y el mensaje de transferencia. El color se toma de la paleta del sitio. Presione <strong>Guardar chatbox de la empresa</strong>.</p>
             <p className="mt-2 text-secondary">Si aparece “Aplique primero la migración de chatbox”, vuelva al paso 2 o revise que la URL y las claves de Supabase correspondan a esa empresa.</p>
           </li>
           <li>
@@ -451,7 +450,23 @@ function ChatboxForm({ settings, company, onSubmit }: { settings: ManagedChatbox
       <Field name="welcome" label="Mensaje de bienvenida" defaultValue={settings.welcome} required />
       <Field name="statusMessage" label="Mensaje de disponibilidad" defaultValue={settings.status_message} required />
       <Field name="offlineMessage" label="Mensaje fuera de horario" defaultValue={settings.offline_message} required />
-      <Field name="color" label="Color hexadecimal" defaultValue={settings.color} required />
+      <div className="rounded-lg border border-outline-variant bg-surface p-3">
+        <p className="text-sm text-secondary">Paleta del sitio</p>
+        <p className="mt-1 text-xs text-secondary">El chatbox usa automáticamente el color principal configurado en el sitio.</p>
+        <div className="mt-3 grid grid-cols-4 gap-2">
+          {[
+            ["Principal", settings.palette.primaryColor],
+            ["Acento", settings.palette.accentColor],
+            ["Panel", settings.palette.adminColor],
+            ["Fondo", settings.palette.backgroundColor],
+          ].map(([label, color]) => (
+            <div key={label} className="space-y-1 text-center">
+              <div className="h-8 rounded border border-outline-variant" style={{ backgroundColor: color }} aria-label={`${label}: color configurado`} />
+              <span className="block truncate text-[11px] text-secondary">{label}</span>
+            </div>
+          ))}
+        </div>
+      </div>
       <label className="block text-sm text-secondary">Posición<select name="position" defaultValue={settings.position} className="mt-1 w-full rounded-lg border border-outline-variant bg-surface px-3 py-2 text-on-surface"><option value="right">Derecha</option><option value="left">Izquierda</option></select></label>
       <Field name="launcher" label="Icono del botón" defaultValue={settings.launcher} required />
     </div>
