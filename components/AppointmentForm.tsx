@@ -62,7 +62,7 @@ export default function AppointmentForm({ propertyId, selectedIso, duration, onD
           </span>
           <div>
             <h3 className="font-headline-md text-headline-md text-on-primary-container leading-none">¡Solicitud enviada!</h3>
-            <p className="font-body-md text-body-md text-on-primary-container/80 text-sm">Pendiente de confirmación humana</p>
+            <p className="font-body-md text-body-md text-on-primary-container/80 text-sm">Estamos revisando su solicitud</p>
           </div>
         </div>
         <div className="px-6 py-6 bg-surface-container-lowest">
@@ -74,7 +74,7 @@ export default function AppointmentForm({ propertyId, selectedIso, duration, onD
             .
           </p>
           <p className="font-body-md text-body-md text-secondary text-sm mt-2 leading-relaxed">
-            Un asesor la revisará en <strong>/admin/crm/calendario</strong> y se pondrá en contacto con usted para confirmar los detalles.
+            Nuestro equipo revisará su solicitud y se pondrá en contacto con usted para confirmar los detalles.
           </p>
           <div className="mt-5 flex gap-2">
             <a
