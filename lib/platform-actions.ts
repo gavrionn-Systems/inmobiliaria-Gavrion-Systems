@@ -71,6 +71,33 @@ async function getCompany(id: string) {
   return data;
 }
 
+async function dispatchAutomation(input: {
+  runId: string;
+  companyId: string;
+  scriptKey: string;
+}): Promise<{ dispatched: boolean; error?: string }> {
+  const runnerUrl = process.env.PLATFORM_RUNNER_URL?.replace(/\/$/, "");
+  if (!runnerUrl) return { dispatched: false, error: "PLATFORM_RUNNER_URL no está configurada." };
+
+  try {
+    const response = await fetch(`${runnerUrl}/runs`, {
+      method: "POST",
+      headers: {
+        "content-type": "application/json",
+        authorization: `Bearer ${process.env.PLATFORM_RUNNER_TOKEN ?? ""}`,
+      },
+      body: JSON.stringify(input),
+      signal: AbortSignal.timeout(10_000),
+    });
+    if (!response.ok) {
+      return { dispatched: false, error: `El ejecutor respondió HTTP ${response.status}.` };
+    }
+    return { dispatched: true };
+  } catch {
+    return { dispatched: false, error: "No se pudo contactar al ejecutor." };
+  }
+}
+
 function remoteClient(company: { supabase_url: string; supabase_service_role_key_encrypted: string }): SupabaseClient {
   const serviceKey = decryptPlatformSecret(company.supabase_service_role_key_encrypted);
   if (!company.supabase_url || !serviceKey) throw new Error("La conexión segura de esta empresa no está configurada.");
@@ -260,11 +287,12 @@ export async function queuePlatformAutomation(input: unknown): Promise<PlatformA
   const { data, error } = await createAdminClient().from("platform_automation_runs").insert({ company_id: parsed.data.companyId, script_key: parsed.data.scriptKey, status: "queued", executor: process.env.PLATFORM_RUNNER_URL ? "internal-runner" : "pending", requested_by: auth.userId ?? null }).select("id").single();
   if (error) return { ok: false, error: "No se pudo poner la tarea en cola." };
   await audit({ actorId: auth.userId, companyId: parsed.data.companyId, action: "automation.queued", entityType: "automation_run", entityId: data.id, metadata: { scriptKey: parsed.data.scriptKey } });
-  if (process.env.PLATFORM_RUNNER_URL) {
-    try { await fetch(`${process.env.PLATFORM_RUNNER_URL.replace(/\/$/, "")}/runs`, { method: "POST", headers: { "content-type": "application/json", authorization: `Bearer ${process.env.PLATFORM_RUNNER_TOKEN ?? ""}` }, body: JSON.stringify({ runId: data.id, companyId: parsed.data.companyId, scriptKey: parsed.data.scriptKey }) }); } catch { /* queda en cola para reintento */ }
+  const dispatch = await dispatchAutomation({ runId: data.id, companyId: parsed.data.companyId, scriptKey: parsed.data.scriptKey });
+  if (process.env.PLATFORM_RUNNER_URL && !dispatch.dispatched) {
+    await createAdminClient().from("platform_automation_runs").update({ status: "failed", error_message: dispatch.error ?? "No se pudo enviar la tarea.", updated_at: new Date().toISOString() }).eq("id", data.id);
   }
   revalidatePlatform();
-  return { ok: true, id: data.id, message: process.env.PLATFORM_RUNNER_URL ? "Tarea enviada al ejecutor." : "Tarea en cola: falta configurar PLATFORM_RUNNER_URL." };
+  return { ok: true, id: data.id, message: process.env.PLATFORM_RUNNER_URL ? (dispatch.dispatched ? "Tarea enviada al ejecutor." : "Tarea registrada como fallida: revise el ejecutor.") : "Tarea en cola: falta configurar PLATFORM_RUNNER_URL." };
 }
 
 export async function retryPlatformAutomation(id: string): Promise<PlatformActionResult> {
@@ -275,7 +303,11 @@ export async function retryPlatformAutomation(id: string): Promise<PlatformActio
   if (run.attempts >= run.max_attempts) return { ok: false, error: "Se alcanzó el máximo de reintentos configurado." };
   const { error } = await createAdminClient().from("platform_automation_runs").update({ status: "queued", attempts: run.attempts + 1, error_message: "", updated_at: new Date().toISOString() }).eq("id", id);
   if (error) return { ok: false, error: "No se pudo reintentar la tarea." };
+  const dispatch = await dispatchAutomation({ runId: run.id, companyId: run.company_id, scriptKey: run.script_key });
+  if (process.env.PLATFORM_RUNNER_URL && !dispatch.dispatched) {
+    await createAdminClient().from("platform_automation_runs").update({ status: "failed", error_message: dispatch.error ?? "No se pudo enviar la tarea.", updated_at: new Date().toISOString() }).eq("id", id);
+  }
   await audit({ actorId: auth.userId, companyId: run.company_id, action: "automation.retried", entityType: "automation_run", entityId: id, metadata: { scriptKey: run.script_key, attempt: run.attempts + 1 } });
   revalidatePlatform();
-  return { ok: true, id, message: "Tarea puesta nuevamente en cola." };
+  return { ok: true, id, message: process.env.PLATFORM_RUNNER_URL ? (dispatch.dispatched ? "Tarea reenviada al ejecutor." : "Reintento registrado como fallido: revise el ejecutor.") : "Tarea puesta nuevamente en cola; falta configurar PLATFORM_RUNNER_URL." };
 }

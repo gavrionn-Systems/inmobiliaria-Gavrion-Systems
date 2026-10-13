@@ -1,7 +1,7 @@
 "use server";
 
 import { auditLog } from "@/lib/audit";
-import { getSession } from "@/lib/auth";
+import { authorize } from "@/lib/auth";
 import { createAdminClient } from "@/lib/supabase/admin";
 
 const PROPERTY_IMAGES_BUCKET = "property-images";
@@ -41,7 +41,7 @@ function pathFromPublicUrl(url: string): string | null {
 export async function uploadPropertyImage(
   formData: FormData
 ): Promise<UploadResult> {
-  const session = await getSession();
+  const session = await authorize(["admin", "agente"]);
   if (!session) {
     return { ok: false, error: "No tiene permisos para subir imágenes." };
   }
@@ -82,7 +82,7 @@ export async function uploadPropertyImage(
 }
 
 export async function deletePropertyImage(url: string): Promise<UploadResult> {
-  const session = await getSession();
+  const session = await authorize(["admin", "agente"]);
   if (!session) {
     return { ok: false, error: "No tiene permisos para eliminar imágenes." };
   }

@@ -63,7 +63,7 @@ export function can(allowed: readonly DemoRole[], role: string): boolean {
 }
 
 export function isAdminOnlyPath(pathname: string): boolean {
-  return ADMIN_ONLY_PATH_PREFIXES.filter((prefix) => prefix !== "/admin/configuracion").some(
+  return ADMIN_ONLY_PATH_PREFIXES.some(
     (prefix) => pathname === prefix || pathname.startsWith(`${prefix}/`)
   );
 }

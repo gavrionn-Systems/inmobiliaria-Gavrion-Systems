@@ -355,8 +355,8 @@ export async function moveOpportunity(
   opportunityId: string,
   stageId: string
 ): Promise<CrmActionResult> {
-  const ctx = await context();
-  if (!ctx) return { ok: false, error: "No autorizado." };
+  const ctx = await context(true);
+  if (!ctx) return { ok: false, error: "Solo un administrador puede mover oportunidades entre etapas." };
   if (!uuid.safeParse(opportunityId).success || !uuid.safeParse(stageId).success) {
     return { ok: false, error: "Etapa no válida." };
   }

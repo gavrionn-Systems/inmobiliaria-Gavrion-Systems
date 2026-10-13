@@ -3,7 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { headers } from "next/headers";
 import { auditLog } from "@/lib/audit";
-import { getSession } from "@/lib/auth";
+import { authorize, getSession } from "@/lib/auth";
 import { rateLimit } from "@/lib/rate-limit";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { createClient } from "@/lib/supabase/server";
@@ -29,9 +29,9 @@ const REVALIDATE = ["/", "/propiedades", "/admin", "/admin/propiedades"];
 /** Las server actions son endpoints invocables por cualquiera; el proxy solo
  *  protege páginas. Toda mutación de admin debe empezar con requireSession(). */
 async function requireSession(): Promise<ActionResult | null> {
-  const session = await getSession();
+  const session = await authorize(["admin", "agente"]);
   if (!session) {
-    return { ok: false, error: "No autorizado. Inicie sesión nuevamente." };
+    return { ok: false, error: "No tiene permisos para esta acción." };
   }
   return null;
 }
