@@ -246,23 +246,25 @@ export default function PipelineBoard({
                           )}
                           {item.status === "abierta" ? (
                             <>
-                              <label className="mt-3 block font-label-sm text-label-sm text-secondary">
-                                Mover a
-                                <select
-                                  value={item.stage_id}
-                                  disabled={pending}
-                                  onChange={(event) =>
-                                    run(moveOpportunity(item.id, event.target.value))
-                                  }
-                                  className="mt-1 w-full bg-surface rounded border border-outline-variant px-2 py-2.5 text-on-surface focus:border-primary"
-                                >
-                                  {stages.map((option) => (
-                                    <option key={option.id} value={option.id}>
-                                      {option.name}
-                                    </option>
-                                  ))}
-                                </select>
-                              </label>
+                              {isAdmin && (
+                                <label className="mt-3 block font-label-sm text-label-sm text-secondary">
+                                  Mover a
+                                  <select
+                                    value={item.stage_id}
+                                    disabled={pending}
+                                    onChange={(event) =>
+                                      run(moveOpportunity(item.id, event.target.value))
+                                    }
+                                    className="mt-1 w-full bg-surface rounded border border-outline-variant px-2 py-2.5 text-on-surface focus:border-primary"
+                                  >
+                                    {stages.map((option) => (
+                                      <option key={option.id} value={option.id}>
+                                        {option.name}
+                                      </option>
+                                    ))}
+                                  </select>
+                                </label>
+                              )}
                               <div className="mt-3 flex gap-2">
                                 <button
                                   type="button"
