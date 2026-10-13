@@ -1,6 +1,6 @@
 "use server";
 
-import { randomBytes } from "node:crypto";
+import { randomBytes, randomUUID } from "node:crypto";
 import { revalidatePath } from "next/cache";
 import { createClient, type SupabaseClient } from "@supabase/supabase-js";
 import { z } from "zod";
@@ -35,7 +35,17 @@ const userSchema = z.object({
   username: z.string().trim().toLowerCase().regex(/^[a-z0-9][a-z0-9._-]{2,59}$/, "Use un usuario de 3 a 60 caracteres: letras, números, punto, guion o guion bajo."),
   email: z.union([z.email().max(160), z.literal("")]).optional().default(""),
   role: z.enum(["company_admin", "designer", "agente"]),
-  temporaryPassword: z.string().min(8).max(72).optional(),
+  // El campo es opcional en el formulario. Un valor vacío (incluidos espacios)
+  // significa "generar una contraseña temporal", pero nunca permite crear una
+  // cuenta sin contraseña.
+  temporaryPassword: z.preprocess(
+    (value) => {
+      if (typeof value !== "string") return value;
+      const trimmed = value.trim();
+      return trimmed.length > 0 ? trimmed : undefined;
+    },
+    z.string().min(8, "La contraseña debe tener al menos 8 caracteres.").max(72).optional(),
+  ),
   notes: z.string().trim().max(2000),
 });
 
@@ -43,6 +53,37 @@ const scriptSchema = z.object({
   companyId: z.uuid(),
   scriptKey: z.enum(["apply_migrations", "sync_site_settings", "refresh_search_indexes"]),
 });
+
+const managedChatboxSchema = z.object({
+  enabled: z.boolean(),
+  welcome: z.string().trim().min(1).max(300),
+  color: z.string().trim().regex(/^#[0-9a-fA-F]{6}$/, "Use un color hexadecimal válido."),
+  statusMessage: z.string().trim().min(1).max(160),
+  offlineMessage: z.string().trim().min(1).max(300),
+  position: z.enum(["left", "right"]),
+  launcher: z.string().trim().min(1).max(4),
+  assistantEnabled: z.boolean(),
+  assistantName: z.string().trim().min(1).max(100),
+  assistantInstructions: z.string().trim().max(2000),
+  handoffMessage: z.string().trim().min(1).max(300),
+  knowledge: z.string().trim().max(12000),
+});
+
+export type ManagedChatboxSettings = {
+  widget_key: string;
+  enabled: boolean;
+  welcome: string;
+  color: string;
+  status_message: string;
+  offline_message: string;
+  position: "left" | "right";
+  launcher: string;
+  assistant_enabled: boolean;
+  assistant_name: string;
+  assistant_instructions: string;
+  handoff_message: string;
+  knowledge: string;
+};
 
 async function requirePlatformAdmin() {
   const session = await getSession();
@@ -182,7 +223,7 @@ export async function createManagedUser(input: unknown): Promise<PlatformActionR
   let remote;
   try { remote = remoteClient(company); } catch (error) { return { ok: false, error: error instanceof Error ? error.message : "Conexión no configurada." }; }
   const email = data.email?.trim().toLowerCase() || usernameToInternalEmail(data.username);
-  const password = data.temporaryPassword || generatedPassword();
+  const password = data.temporaryPassword ?? generatedPassword();
   const created = await remote.auth.admin.createUser({ email, password, email_confirm: true, user_metadata: { full_name: data.fullName, username: data.username } });
   if (created.error || !created.data.user) return { ok: false, error: created.error?.message ?? "No se pudo crear la cuenta externa." };
   const { error: profileError } = await remote.from("profiles").upsert({ id: created.data.user.id, full_name: data.fullName, email, role: remoteRole(data.role), is_active: true }, { onConflict: "id" });
@@ -310,4 +351,86 @@ export async function retryPlatformAutomation(id: string): Promise<PlatformActio
   await audit({ actorId: auth.userId, companyId: run.company_id, action: "automation.retried", entityType: "automation_run", entityId: id, metadata: { scriptKey: run.script_key, attempt: run.attempts + 1 } });
   revalidatePlatform();
   return { ok: true, id, message: process.env.PLATFORM_RUNNER_URL ? (dispatch.dispatched ? "Tarea reenviada al ejecutor." : "Reintento registrado como fallido: revise el ejecutor.") : "Tarea puesta nuevamente en cola; falta configurar PLATFORM_RUNNER_URL." };
+}
+
+const defaultManagedChatbox: ManagedChatboxSettings = {
+  widget_key: "",
+  enabled: true,
+  welcome: "Hola, ¿cómo podemos ayudarte?",
+  color: "#506600",
+  status_message: "Normalmente respondemos pronto.",
+  offline_message: "Estamos fuera de horario. Déjanos tu mensaje.",
+  position: "right",
+  launcher: "💬",
+  assistant_enabled: true,
+  assistant_name: "Asistente virtual",
+  assistant_instructions: "Responde con amabilidad, brevedad y únicamente con información confirmada.",
+  handoff_message: "Voy a transferir esta conversación a una persona del equipo para ayudarte mejor.",
+  knowledge: "",
+};
+
+export type ManagedChatboxActionResult =
+  | { ok: true; settings: ManagedChatboxSettings; installBaseUrl: string }
+  | { ok: false; error: string };
+
+export async function getManagedCompanyChatbox(companyId: string): Promise<ManagedChatboxActionResult> {
+  const auth = await requirePlatformAdmin();
+  if (!auth.ok) return auth;
+  if (!z.uuid().safeParse(companyId).success) return { ok: false, error: "Empresa no válida." };
+  try {
+    const company = await getCompany(companyId);
+    const remote = remoteClient(company);
+    const { data, error } = await remote
+      .from("chatbox_settings")
+      .select("widget_key, enabled, welcome, color, status_message, offline_message, position, launcher, assistant_enabled, assistant_name, assistant_instructions, handoff_message, knowledge")
+      .eq("id", 1)
+      .maybeSingle();
+    if (error) return { ok: false, error: "No se pudo leer el chatbox remoto. Aplique primero la migración de chatbox." };
+    return {
+      ok: true,
+      settings: { ...defaultManagedChatbox, ...(data ?? {}) } as ManagedChatboxSettings,
+      installBaseUrl: String(company.public_url || company.deployment_url || "").replace(/\/$/, ""),
+    };
+  } catch (error) {
+    return { ok: false, error: error instanceof Error ? error.message : "No se pudo conectar con la empresa." };
+  }
+}
+
+export async function saveManagedCompanyChatbox(companyId: string, input: unknown): Promise<PlatformActionResult> {
+  const auth = await requirePlatformAdmin();
+  if (!auth.ok) return auth;
+  if (!z.uuid().safeParse(companyId).success) return { ok: false, error: "Empresa no válida." };
+  const parsed = managedChatboxSchema.safeParse(input);
+  if (!parsed.success) return { ok: false, error: parsed.error.issues[0]?.message ?? "Datos no válidos." };
+  try {
+    const company = await getCompany(companyId);
+    const remote = remoteClient(company);
+    const { data: current } = await remote.from("chatbox_settings").select("widget_key").eq("id", 1).maybeSingle();
+    const { error } = await remote.from("chatbox_settings").upsert(
+      {
+        id: 1,
+        widget_key: current?.widget_key || randomUUID(),
+        enabled: parsed.data.enabled,
+        welcome: parsed.data.welcome,
+        color: parsed.data.color.toLowerCase(),
+        status_message: parsed.data.statusMessage,
+        offline_message: parsed.data.offlineMessage,
+        position: parsed.data.position,
+        launcher: parsed.data.launcher,
+        assistant_enabled: parsed.data.assistantEnabled,
+        assistant_name: parsed.data.assistantName,
+        assistant_instructions: parsed.data.assistantInstructions,
+        handoff_message: parsed.data.handoffMessage,
+        knowledge: parsed.data.knowledge,
+        updated_at: new Date().toISOString(),
+      },
+      { onConflict: "id" },
+    );
+    if (error) return { ok: false, error: "No se pudo guardar el chatbox remoto. Aplique primero la migración de chatbox." };
+    await audit({ actorId: auth.userId, companyId, action: "company.chatbox_updated", entityType: "chatbox_settings", entityId: companyId });
+    revalidatePlatform();
+    return { ok: true, id: companyId, message: "Configuración del chatbox guardada en la empresa." };
+  } catch (error) {
+    return { ok: false, error: error instanceof Error ? error.message : "No se pudo conectar con la empresa." };
+  }
 }
