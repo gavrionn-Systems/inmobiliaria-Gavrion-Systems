@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import {
   archiveManagedCompany,
@@ -9,12 +9,15 @@ import {
   createManagedCompany,
   createManagedUser,
   deleteManagedUser,
+  getManagedCompanyChatbox,
   queuePlatformAutomation,
   resetManagedUserPassword,
   retryPlatformAutomation,
+  saveManagedCompanyChatbox,
   updateManagedCompany,
   updateManagedUser,
 } from "@/lib/platform-actions";
+import type { ManagedChatboxSettings } from "@/lib/platform-actions";
 import { isInternalUserEmail, usernameFromStoredEmail } from "@/lib/user-identifiers";
 
 type Company = {
@@ -88,12 +91,32 @@ function resultMessage(result: { ok: boolean; error?: string }) {
 
 export default function PlatformControlPanel({ companies, users, runs, audit, releases }: Props) {
   const router = useRouter();
-  const [section, setSection] = useState<"companies" | "users" | "automation" | "audit" | "releases">("companies");
+  const [section, setSection] = useState<"companies" | "users" | "chatbox" | "automation" | "audit" | "releases">("companies");
   const [message, setMessage] = useState("");
   const [editingCompany, setEditingCompany] = useState<Company | null>(null);
   const [editingUser, setEditingUser] = useState<ManagedUser | null>(null);
   const [formRevision, setFormRevision] = useState(0);
   const activeCompanies = useMemo(() => companies.filter((company) => company.status !== "archived"), [companies]);
+  const [chatboxCompanyId, setChatboxCompanyId] = useState(activeCompanies[0]?.id ?? "");
+  const [chatboxSettings, setChatboxSettings] = useState<ManagedChatboxSettings | null>(null);
+  const [chatboxLoading, setChatboxLoading] = useState(false);
+  const [showChatboxTutorial, setShowChatboxTutorial] = useState(false);
+
+  useEffect(() => {
+    if (section !== "chatbox" || !chatboxCompanyId) return;
+    let cancelled = false;
+    setChatboxLoading(true);
+    void getManagedCompanyChatbox(chatboxCompanyId).then((result) => {
+      if (cancelled) return;
+      if (result.ok) setChatboxSettings(result.settings);
+      else {
+        setChatboxSettings(null);
+        setMessage(result.error);
+      }
+      setChatboxLoading(false);
+    });
+    return () => { cancelled = true; };
+  }, [section, chatboxCompanyId]);
 
   async function saveCompany(formData: FormData) {
     const input = {
@@ -190,12 +213,33 @@ export default function PlatformControlPanel({ companies, users, runs, audit, re
     if (result.ok) router.refresh();
   }
 
+  async function saveChatbox(formData: FormData) {
+    if (!chatboxCompanyId) return;
+    const result = await saveManagedCompanyChatbox(chatboxCompanyId, {
+      enabled: formData.has("enabled"),
+      welcome: String(formData.get("welcome") ?? ""),
+      color: String(formData.get("color") ?? ""),
+      statusMessage: String(formData.get("statusMessage") ?? ""),
+      offlineMessage: String(formData.get("offlineMessage") ?? ""),
+      position: String(formData.get("position") ?? "right"),
+      launcher: String(formData.get("launcher") ?? ""),
+      assistantEnabled: formData.has("assistantEnabled"),
+      assistantName: String(formData.get("assistantName") ?? ""),
+      assistantInstructions: String(formData.get("assistantInstructions") ?? ""),
+      handoffMessage: String(formData.get("handoffMessage") ?? ""),
+      knowledge: String(formData.get("knowledge") ?? ""),
+    });
+    setMessage(resultMessage(result));
+    if (result.ok) router.refresh();
+  }
+
   return (
     <div className="space-y-6">
       <div className="flex flex-wrap gap-2 border-b border-outline-variant pb-2" role="tablist" aria-label="Panel general">
         {[
           ["companies", "Empresas", "business"],
           ["users", "Usuarios", "group"],
+          ["chatbox", "Chatbox", "chat"],
           ["automation", "Automatizaciones", "terminal"],
           ["audit", "Auditoría", "history"],
           ["releases", "Versiones", "deployed_code"],
@@ -264,6 +308,33 @@ export default function PlatformControlPanel({ companies, users, runs, audit, re
         </div>
       ) : null}
 
+      {section === "chatbox" ? (
+        <div className="grid gap-6 xl:grid-cols-[minmax(0,1fr)_24rem]">
+          <section className="space-y-4">
+            <div className="flex flex-wrap items-start justify-between gap-4">
+              <div>
+              <h2 className="font-headline-md text-on-surface">Chatbox por empresa</h2>
+              <p className="text-sm text-secondary">Configure el widget y el asistente de cada base remota. Las claves de servicio nunca se envían al navegador.</p>
+              </div>
+              <button type="button" onClick={() => setShowChatboxTutorial((value) => !value)} className="inline-flex items-center gap-2 rounded-lg border border-primary px-3 py-2 text-sm font-semibold text-primary hover:bg-primary-container">
+                <span className="material-symbols-outlined text-base" aria-hidden="true">school</span>
+                {showChatboxTutorial ? "Ocultar tutorial" : "Tutorial"}
+              </button>
+            </div>
+            {showChatboxTutorial ? <ChatboxTutorial /> : null}
+            {chatboxLoading ? <div className="rounded-xl border border-outline-variant bg-surface-container-low p-6 text-sm text-secondary">Cargando configuración remota…</div> : chatboxSettings ? <ChatboxForm settings={chatboxSettings} company={activeCompanies.find((item) => item.id === chatboxCompanyId)} onSubmit={saveChatbox} /> : <Empty text="Seleccione una empresa conectada para configurar su chatbox." />}
+          </section>
+          <aside className="h-fit rounded-xl border border-outline-variant bg-surface-container-low p-5">
+            <h3 className="font-headline-sm text-on-surface">Empresa</h3>
+            <select value={chatboxCompanyId} onChange={(event) => setChatboxCompanyId(event.target.value)} className="mt-3 w-full rounded-lg border border-outline-variant bg-surface px-3 py-2 text-on-surface">
+              <option value="">Seleccione una empresa</option>
+              {activeCompanies.map((company) => <option key={company.id} value={company.id}>{company.name}</option>)}
+            </select>
+            <p className="mt-4 text-xs text-secondary">La configuración se guarda directamente en la base de datos de la empresa seleccionada.</p>
+          </aside>
+        </div>
+      ) : null}
+
       {section === "automation" ? (
         <div className="grid gap-6 xl:grid-cols-[24rem_minmax(0,1fr)]">
           <AutomationForm companies={activeCompanies} onSubmit={runAutomation} />
@@ -279,6 +350,59 @@ export default function PlatformControlPanel({ companies, users, runs, audit, re
 }
 
 function Empty({ text }: { text: string }) { return <div className="rounded-xl border border-dashed border-outline-variant p-8 text-center text-sm text-secondary">{text}</div>; }
+
+function ChatboxTutorial() {
+  return <section className="rounded-xl border border-primary/30 bg-primary-container/20 p-5 text-sm text-on-surface">
+    <div className="flex items-start gap-3">
+      <span className="material-symbols-outlined mt-0.5 text-primary" aria-hidden="true">menu_book</span>
+      <div className="min-w-0 flex-1">
+        <h3 className="font-headline-sm text-on-surface">Tutorial: configurar el chatbox de una empresa</h3>
+        <p className="mt-1 text-secondary">Realice estos pasos en orden. La configuración se guarda en la base independiente de la empresa seleccionada.</p>
+        <ol className="mt-5 space-y-5">
+          <li>
+            <h4 className="font-semibold text-on-surface">1. Registrar la empresa en “Empresas”</h4>
+            <p className="mt-1 text-secondary">Abra la pestaña <strong>Empresas</strong> y cree o edite la instalación. Complete el nombre, la URL pública, la URL de Vercel y la URL del proyecto Supabase.</p>
+            <ul className="mt-2 list-disc space-y-1 pl-5 text-secondary">
+              <li><strong>Anon key:</strong> use la clave pública del proyecto Supabase.</li>
+              <li><strong>Referencia del proyecto:</strong> el identificador que aparece en la URL del proyecto.</li>
+              <li><strong>Service role key:</strong> copie la clave secreta del proyecto Supabase. Se cifra en el servidor y no se muestra al navegador.</li>
+            </ul>
+            <p className="mt-2 rounded-lg bg-surface-container-low px-3 py-2 text-xs text-secondary">Nunca coloque la service role key en el widget, en el navegador, en GitHub ni en una variable <code>NEXT_PUBLIC_*</code>.</p>
+          </li>
+          <li>
+            <h4 className="font-semibold text-on-surface">2. Aplicar la migración en la base de la empresa</h4>
+            <p className="mt-1 text-secondary">Entre al proyecto Supabase de esa empresa, abra <strong>SQL Editor</strong> y ejecute el contenido de <code>supabase/migrations/20261013100000_chatbox.sql</code>. También puede hacerlo desde la terminal:</p>
+            <pre className="mt-2 overflow-x-auto rounded-lg bg-surface p-3 text-xs text-on-surface">{`cd apps/web\nnpx supabase link --project-ref REFERENCIA_DE_LA_EMPRESA\nnpx supabase db push`}</pre>
+            <p className="mt-2 text-secondary">La migración crea <code>chatbox_settings</code>, el identificador del visitante web y deja listas las tablas para guardar conversaciones y mensajes.</p>
+          </li>
+          <li>
+            <h4 className="font-semibold text-on-surface">3. Configurar la seguridad central en Vercel</h4>
+            <p className="mt-1 text-secondary">En el proyecto central de Vercel vaya a <strong>Settings → Environment Variables</strong> y agregue:</p>
+            <div className="mt-2 overflow-x-auto rounded-lg bg-surface p-3 font-mono text-xs text-on-surface">PLATFORM_ENCRYPTION_KEY</div>
+            <p className="mt-2 text-secondary">Use una cadena aleatoria larga. Debe permanecer estable; si la cambia, el panel ya no podrá descifrar las service role keys guardadas anteriormente. Seleccione <strong>Production</strong> y vuelva a desplegar.</p>
+          </li>
+          <li>
+            <h4 className="font-semibold text-on-surface">4. Entrar al panel general</h4>
+            <p className="mt-1 text-secondary">Inicie sesión con el usuario de administrador general y abra <strong>Panel general → Chatbox</strong>. Este acceso usa el valor configurado en <code>ADMIN_PANEL_PATH</code>; no comparta la ruta públicamente.</p>
+          </li>
+          <li>
+            <h4 className="font-semibold text-on-surface">5. Seleccionar y configurar la empresa</h4>
+            <p className="mt-1 text-secondary">En el selector de la derecha elija la empresa. Espere a que cargue la configuración remota y complete el mensaje de bienvenida, color, posición, nombre de la IA, instrucciones, conocimiento empresarial y mensaje de transferencia. Presione <strong>Guardar chatbox de la empresa</strong>.</p>
+            <p className="mt-2 text-secondary">Si aparece “Aplique primero la migración de chatbox”, vuelva al paso 2 o revise que la URL y las claves de Supabase correspondan a esa empresa.</p>
+          </li>
+          <li>
+            <h4 className="font-semibold text-on-surface">6. Activar respuestas automáticas (opcional)</h4>
+            <p className="mt-1 text-secondary">Para que responda la IA, agregue <code>GEMINI_API_KEY</code> o <code>OPENAI_API_KEY</code> en el Vercel de la empresa y vuelva a desplegar. Si no agrega estas variables, el mensaje sí se guardará en el CRM y quedará para atención humana.</p>
+          </li>
+          <li>
+            <h4 className="font-semibold text-on-surface">7. Validar la instalación</h4>
+            <p className="mt-1 text-secondary">Abra el sitio público de la empresa, use el botón del chat y envíe un mensaje. Después confirme que el contacto aparece en <strong>Solicitudes</strong> o <strong>CRM → Inbox</strong>. Desde allí el administrador puede presionar <strong>Tomar conversación</strong>, responder y luego <strong>Reactivar IA</strong>.</p>
+          </li>
+        </ol>
+      </div>
+    </div>
+  </section>;
+}
 
 function CompanyForm({ company, onSubmit, onCancel }: { company: Company | null; onSubmit: (formData: FormData) => Promise<void>; onCancel: () => void }) {
   return <form action={onSubmit} className="space-y-4 rounded-xl border border-outline-variant bg-surface-container-low p-5">
@@ -305,11 +429,35 @@ function UserForm({ user, companies, onSubmit, onCancel }: { user: ManagedUser |
     <h2 className="font-headline-md text-on-surface">{user ? "Editar usuario" : "Nueva cuenta"}</h2>
     <label className="block text-sm text-secondary">Empresa<select name="companyId" defaultValue={user?.company_id ?? companies[0]?.id ?? ""} disabled={Boolean(user)} required className="mt-1 w-full rounded-lg border border-outline-variant bg-surface px-3 py-2 text-on-surface"><option value="">Seleccione una empresa</option>{companies.map((company) => <option key={company.id} value={company.id}>{company.name}</option>)}</select></label>
     <Field name="fullName" label="Nombre completo" defaultValue={user?.full_name} required /><Field name="username" label="Usuario" defaultValue={user ? (isInternalUserEmail(user.email) ? usernameFromStoredEmail(user.email) : user.email.split("@")[0]) : ""} required />
-    {!user ? <Field name="temporaryPassword" label="Contraseña temporal (opcional)" type="password" /> : null}
+    {!user ? <>
+      <Field name="temporaryPassword" label="Contraseña temporal (opcional)" type="password" />
+      <p className="-mt-2 text-xs text-secondary">Puede dejarla vacía: se generará una contraseña segura y se mostrará una sola vez al crear la cuenta. El usuario siempre necesitará una contraseña para iniciar sesión.</p>
+    </> : null}
     <label className="block text-sm text-secondary">Rol<select name="role" defaultValue={user?.role ?? "company_admin"} className="mt-1 w-full rounded-lg border border-outline-variant bg-surface px-3 py-2 text-on-surface"><option value="company_admin">Administrador de empresa</option><option value="designer">Diseñador</option><option value="agente">Agente</option></select></label>
     <label className="block text-sm text-secondary">Notas<textarea name="notes" defaultValue={user?.notes} className="mt-1 min-h-20 w-full rounded-lg border border-outline-variant bg-surface px-3 py-2 text-on-surface" /></label>
     <p className="text-xs text-secondary">No se necesita correo electrónico. El usuario iniciará sesión con este nombre de usuario y la contraseña. La contraseña se muestra una sola vez después de crear o restablecer la cuenta.</p>
     <div className="flex gap-2"><button className="rounded-lg bg-primary px-4 py-2 font-semibold text-on-primary" type="submit">Guardar usuario</button>{user ? <button className="rounded-lg border border-outline-variant px-4 py-2 text-secondary" type="button" onClick={onCancel}>Cancelar</button> : null}</div>
+  </form>;
+}
+
+function ChatboxForm({ settings, company, onSubmit }: { settings: ManagedChatboxSettings; company?: Company; onSubmit: (formData: FormData) => Promise<void> }) {
+  const baseUrl = (company?.public_url || company?.deployment_url || "").replace(/\/$/, "");
+  const snippet = settings.widget_key && baseUrl
+    ? `<script src="${baseUrl}/widget.js" data-key="${settings.widget_key}" defer></script>`
+    : "Guarde la conexión de la empresa y aplique la migración para generar el código.";
+  return <form action={onSubmit} className="space-y-4 rounded-xl border border-outline-variant bg-surface-container-low p-5">
+    <div className="flex flex-wrap items-center justify-between gap-3"><div><h2 className="font-headline-md text-on-surface">Configuración remota</h2><p className="text-sm text-secondary">{company?.name ?? "Empresa"}</p></div><label className="inline-flex items-center gap-2 text-sm text-secondary"><input type="checkbox" name="enabled" defaultChecked={settings.enabled} className="h-4 w-4 accent-[var(--color-primary)]" /> Chat visible</label></div>
+    <div className="grid gap-4 md:grid-cols-2">
+      <Field name="welcome" label="Mensaje de bienvenida" defaultValue={settings.welcome} required />
+      <Field name="statusMessage" label="Mensaje de disponibilidad" defaultValue={settings.status_message} required />
+      <Field name="offlineMessage" label="Mensaje fuera de horario" defaultValue={settings.offline_message} required />
+      <Field name="color" label="Color hexadecimal" defaultValue={settings.color} required />
+      <label className="block text-sm text-secondary">Posición<select name="position" defaultValue={settings.position} className="mt-1 w-full rounded-lg border border-outline-variant bg-surface px-3 py-2 text-on-surface"><option value="right">Derecha</option><option value="left">Izquierda</option></select></label>
+      <Field name="launcher" label="Icono del botón" defaultValue={settings.launcher} required />
+    </div>
+    <div className="border-t border-outline-variant pt-5"><div className="flex flex-wrap items-center justify-between gap-3"><div><h3 className="font-headline-sm text-on-surface">Asistente IA</h3><p className="text-sm text-secondary">Configure el comportamiento inicial de la empresa.</p></div><label className="inline-flex items-center gap-2 text-sm text-secondary"><input type="checkbox" name="assistantEnabled" defaultChecked={settings.assistant_enabled} className="h-4 w-4 accent-[var(--color-primary)]" /> Respuestas automáticas</label></div><div className="mt-4 grid gap-4 md:grid-cols-2"><Field name="assistantName" label="Nombre del asistente" defaultValue={settings.assistant_name} required /><Field name="handoffMessage" label="Mensaje de transferencia" defaultValue={settings.handoff_message} required /><label className="block text-sm text-secondary">Instrucciones de tono<textarea name="assistantInstructions" defaultValue={settings.assistant_instructions} rows={4} className="mt-1 w-full rounded-lg border border-outline-variant bg-surface px-3 py-2 text-on-surface" /></label><label className="block text-sm text-secondary">Información confirmada<textarea name="knowledge" defaultValue={settings.knowledge} rows={4} placeholder="Horarios, ubicación, servicios y políticas." className="mt-1 w-full rounded-lg border border-outline-variant bg-surface px-3 py-2 text-on-surface" /></label></div></div>
+    <div className="border-t border-outline-variant pt-5"><h3 className="font-headline-sm text-on-surface">Código de instalación</h3><pre className="mt-2 overflow-x-auto rounded bg-surface p-3 text-xs text-on-surface">{snippet}</pre></div>
+    <button type="submit" className="rounded-lg bg-primary px-4 py-2 font-semibold text-on-primary">Guardar chatbox de la empresa</button>
   </form>;
 }
 
