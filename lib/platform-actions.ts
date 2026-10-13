@@ -57,7 +57,6 @@ const scriptSchema = z.object({
 const managedChatboxSchema = z.object({
   enabled: z.boolean(),
   welcome: z.string().trim().min(1).max(300),
-  color: z.string().trim().regex(/^#[0-9a-fA-F]{6}$/, "Use un color hexadecimal válido."),
   statusMessage: z.string().trim().min(1).max(160),
   offlineMessage: z.string().trim().min(1).max(300),
   position: z.enum(["left", "right"]),
@@ -74,6 +73,12 @@ export type ManagedChatboxSettings = {
   enabled: boolean;
   welcome: string;
   color: string;
+  palette: {
+    primaryColor: string;
+    accentColor: string;
+    adminColor: string;
+    backgroundColor: string;
+  };
   status_message: string;
   offline_message: string;
   position: "left" | "right";
@@ -353,11 +358,21 @@ export async function retryPlatformAutomation(id: string): Promise<PlatformActio
   return { ok: true, id, message: process.env.PLATFORM_RUNNER_URL ? (dispatch.dispatched ? "Tarea reenviada al ejecutor." : "Reintento registrado como fallido: revise el ejecutor.") : "Tarea puesta nuevamente en cola; falta configurar PLATFORM_RUNNER_URL." };
 }
 
+function safePaletteColor(value: unknown, fallback: string): string {
+  return typeof value === "string" && /^#[0-9a-fA-F]{6}$/.test(value) ? value.toLowerCase() : fallback;
+}
+
 const defaultManagedChatbox: ManagedChatboxSettings = {
   widget_key: "",
   enabled: true,
   welcome: "Hola, ¿cómo podemos ayudarte?",
   color: "#506600",
+  palette: {
+    primaryColor: "#506600",
+    accentColor: "#a4c639",
+    adminColor: "#5e5e5e",
+    backgroundColor: "#f8f9fa",
+  },
   status_message: "Normalmente respondemos pronto.",
   offline_message: "Estamos fuera de horario. Déjanos tu mensaje.",
   position: "right",
@@ -386,9 +401,20 @@ export async function getManagedCompanyChatbox(companyId: string): Promise<Manag
       .eq("id", 1)
       .maybeSingle();
     if (error) return { ok: false, error: "No se pudo leer el chatbox remoto. Aplique primero la migración de chatbox." };
+    const { data: siteData } = await remote
+      .from("site_settings")
+      .select("primary_color, accent_color, admin_color, background_color")
+      .eq("id", 1)
+      .maybeSingle();
+    const palette = {
+      primaryColor: safePaletteColor(siteData?.primary_color, defaultManagedChatbox.palette.primaryColor),
+      accentColor: safePaletteColor(siteData?.accent_color, defaultManagedChatbox.palette.accentColor),
+      adminColor: safePaletteColor(siteData?.admin_color, defaultManagedChatbox.palette.adminColor),
+      backgroundColor: safePaletteColor(siteData?.background_color, defaultManagedChatbox.palette.backgroundColor),
+    };
     return {
       ok: true,
-      settings: { ...defaultManagedChatbox, ...(data ?? {}) } as ManagedChatboxSettings,
+      settings: { ...defaultManagedChatbox, ...(data ?? {}), color: palette.primaryColor, palette } as ManagedChatboxSettings,
       installBaseUrl: String(company.public_url || company.deployment_url || "").replace(/\/$/, ""),
     };
   } catch (error) {
@@ -406,13 +432,17 @@ export async function saveManagedCompanyChatbox(companyId: string, input: unknow
     const company = await getCompany(companyId);
     const remote = remoteClient(company);
     const { data: current } = await remote.from("chatbox_settings").select("widget_key").eq("id", 1).maybeSingle();
+    const { data: siteData } = await remote.from("site_settings").select("primary_color").eq("id", 1).maybeSingle();
+    const primaryColor = safePaletteColor(siteData?.primary_color, "#506600");
     const { error } = await remote.from("chatbox_settings").upsert(
       {
         id: 1,
         widget_key: current?.widget_key || randomUUID(),
         enabled: parsed.data.enabled,
         welcome: parsed.data.welcome,
-        color: parsed.data.color.toLowerCase(),
+        // Se conserva también el valor persistido para compatibilidad, pero el
+        // widget siempre resuelve el color actual desde site_settings.
+        color: primaryColor,
         status_message: parsed.data.statusMessage,
         offline_message: parsed.data.offlineMessage,
         position: parsed.data.position,

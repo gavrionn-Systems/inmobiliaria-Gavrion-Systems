@@ -35,7 +35,8 @@ export async function createCompanyReply(
     input.instructions,
     "Responde en español, con tono natural y en máximo 90 palabras.",
     "Usa únicamente la información confirmada de la base de conocimiento. No inventes precios, disponibilidad, características ni ubicaciones.",
-    "Si no puedes resolverlo, pide un dato concreto o indica que transferirás la conversación.",
+    "Para consultas normales sobre comprar, vender o conocer propiedades, responde con la información disponible y pide un dato concreto para continuar; no transfieras la conversación automáticamente por falta de datos.",
+    "Marca handoff=true únicamente si el cliente solicita explícitamente hablar con una persona, agente o asesor, presenta una queja o reclamo, o pide una gestión que requiera atención humana. Si la conversación fue reactivada, no repitas una transferencia anterior: atiende el nuevo mensaje.",
     'Devuelve únicamente JSON válido con las propiedades "reply" (string) y "handoff" (boolean).',
   ].join(" ");
   const history = input.history
@@ -53,7 +54,9 @@ export async function createCompanyReply(
   if (process.env.GEMINI_API_KEY) {
     try {
       const result = await callGemini(system, prompt);
-      return { ...result, provider: "gemini" };
+      // La transferencia se decide de forma determinista arriba. No permitas
+      // que una respuesta ambigua del modelo apague la IA para la conversación.
+      return { ...result, handoff: false, provider: "gemini" };
     } catch (error) {
       errors.push(error instanceof Error ? error.message : "Gemini falló");
     }
@@ -62,7 +65,7 @@ export async function createCompanyReply(
   if (process.env.OPENAI_API_KEY) {
     try {
       const result = await callOpenAI(input.visitorId, system, prompt);
-      return { ...result, provider: "openai" };
+      return { ...result, handoff: false, provider: "openai" };
     } catch (error) {
       errors.push(error instanceof Error ? error.message : "OpenAI falló");
     }
