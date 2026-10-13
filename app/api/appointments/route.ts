@@ -154,7 +154,7 @@ export async function POST(request: Request) {
       starts_at: inserted.starts_at,
       ends_at: inserted.ends_at,
       status: "pendiente",
-      message: "Solicitud enviada. Un agente la confirmará pronto (aprobación humana).",
+      message: "Solicitud recibida. Nuestro equipo la revisará y se pondrá en contacto pronto.",
     },
     { status: 201 }
   );
