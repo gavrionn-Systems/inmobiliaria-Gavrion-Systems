@@ -32,7 +32,9 @@ export async function GET(request: Request) {
       company: site.name,
       logoUrl: site.logoUrl,
       welcome: settings.welcome,
-      color: safeWidgetColor(settings.color),
+      // El chatbox hereda la paleta vigente del sitio, no una copia antigua
+      // guardada en la configuración del widget.
+      color: safeWidgetColor(site.primaryColor),
       statusMessage: settings.status_message,
       offlineMessage: settings.offline_message,
       position: settings.position,

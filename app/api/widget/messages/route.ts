@@ -206,9 +206,11 @@ export async function POST(request: Request) {
     } catch (error) {
       console.error("[chatbox-ai] No se pudo generar respuesta", error);
       generated = {
-        reply: settings.handoff_message,
-        handoff: true,
-        provider: "unconfigured",
+        reply: "En este momento no pude procesar tu mensaje. Intenta nuevamente en unos segundos.",
+        // Un fallo temporal del proveedor no equivale a una solicitud de
+        // atención humana ni debe dejar la conversación en modo manual.
+        handoff: false,
+        provider: "fallback",
       };
     }
 
