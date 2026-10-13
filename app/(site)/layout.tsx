@@ -2,6 +2,7 @@ import Header from "@/components/Header";
 import Footer from "@/components/Footer";
 import PageTransition from "@/components/PageTransition";
 import { getSiteSettings } from "@/lib/site-settings";
+import Script from "next/script";
 
 export default async function SiteLayout({
   children,
@@ -24,6 +25,7 @@ export default async function SiteLayout({
         {children}
       </main>
       <Footer />
+      <Script src="/widget.js" data-key="site" strategy="afterInteractive" />
     </>
   );
 }
