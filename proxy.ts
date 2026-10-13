@@ -68,13 +68,22 @@ export async function proxy(request: NextRequest) {
     return NextResponse.redirect(new URL(`${ADMIN_ROUTE_PREFIX}/configuracion`, request.url));
   }
 
-  if (isAdminOnlyPath(pathname) && !isAdminRole(session.role)) {
+  if (
+    isAdminOnlyPath(pathname) &&
+    !isAdminRole(session.role) &&
+    !isTemplateOnlyPath(pathname)
+  ) {
     const url = new URL(ADMIN_ROUTE_PREFIX, request.url);
     url.searchParams.set("error", "forbidden");
     return NextResponse.redirect(url);
   }
 
-  if (isTemplateOnlyPath(pathname) && !isAdminRole(session.role) && !isTemplateAdminRole(session.role)) {
+  if (
+    isTemplateOnlyPath(pathname) &&
+    !isAdminRole(session.role) &&
+    !isTemplateAdminRole(session.role) &&
+    !isDesignerRole(session.role)
+  ) {
     const url = new URL(ADMIN_ROUTE_PREFIX, request.url);
     url.searchParams.set("error", "forbidden");
     return NextResponse.redirect(url);
