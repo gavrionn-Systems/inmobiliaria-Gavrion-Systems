@@ -79,6 +79,20 @@ function fmt(iso: string): string {
   });
 }
 
+function getAppointmentDetails(notes: string | null): { motivo: string; nota: string } {
+  const value = notes?.trim() ?? "";
+  const prefix = "[Motivo:";
+  if (!value.startsWith(prefix)) return { motivo: "", nota: value };
+
+  const closingBracket = value.indexOf("]", prefix.length);
+  if (closingBracket === -1) return { motivo: "", nota: value };
+
+  return {
+    motivo: value.slice(prefix.length, closingBracket).trim(),
+    nota: value.slice(closingBracket + 1).trim(),
+  };
+}
+
 export default function CalendarAdminClient({
   initialAppointments,
   properties,
@@ -172,11 +186,21 @@ export default function CalendarAdminClient({
                 .map((a) => (
                   <div key={a.id} className="bg-surface rounded-lg border border-outline-variant p-3">
                     <p className="font-label-md text-label-md text-on-surface">{a.full_name}</p>
-                    <p className="font-body-md text-body-md text-secondary text-sm">{a.email} · {a.phone ?? "—"}</p>
+                    <p className="font-body-md text-body-md text-secondary text-sm">{a.email || "Sin correo"}</p>
+                    <p className="font-body-md text-body-md text-secondary text-sm">
+                      <strong>Teléfono:</strong> {a.phone ?? "No proporcionado"}
+                    </p>
                     <p className="font-body-md text-body-md text-on-surface text-sm mt-1">
                       {fmt(a.starts_at)} · {a.duration_minutes} min
                     </p>
-                    {a.notes && <p className="font-body-md text-body-md text-secondary text-xs mt-1 line-clamp-2">{a.notes}</p>}
+                    <p className="font-body-md text-body-md text-secondary text-xs mt-1">
+                      <strong>Motivo:</strong> {getAppointmentDetails(a.notes).motivo || "No especificado"}
+                    </p>
+                    {getAppointmentDetails(a.notes).nota && (
+                      <p className="font-body-md text-body-md text-secondary text-xs mt-1 line-clamp-3">
+                        <strong>Nota:</strong> {getAppointmentDetails(a.notes).nota}
+                      </p>
+                    )}
                     <div className="flex gap-2 mt-3">
                       <button
                         disabled={pending}
@@ -226,20 +250,27 @@ export default function CalendarAdminClient({
                       <span className="font-body-md text-body-md text-secondary/50 text-xs px-2 py-2">— libre ({bufferMinutes} min buffer)</span>
                     ) : (
                       slotAppts.map((a) => (
-                        <span
+                        <div
                           key={a.id}
                           className={[
-                            "px-2 py-1 rounded text-xs font-label-sm border",
+                            "px-2 py-1 rounded text-xs font-label-sm border min-w-48",
                             a.status === "confirmada"
                               ? "bg-emerald-100 text-emerald-800 border-emerald-200"
                               : a.status === "pendiente"
                                 ? "bg-amber-100 text-amber-800 border-amber-200"
                                 : "bg-red-100 text-red-800 border-red-200",
                           ].join(" ")}
-                          title={`${a.full_name} — ${fmt(a.starts_at)}`}
+                          title={`${a.full_name} — ${fmt(a.starts_at)} — Tel: ${a.phone ?? "No proporcionado"}`}
                         >
-                          {fmt(a.starts_at)} · {a.full_name} ({a.status})
-                        </span>
+                          <p>{fmt(a.starts_at)} · {a.full_name} ({a.status})</p>
+                          <p className="font-normal mt-0.5">Tel: {a.phone ?? "No proporcionado"}</p>
+                          <p className="font-normal mt-0.5 truncate">
+                            Motivo: {getAppointmentDetails(a.notes).motivo || "No especificado"}
+                          </p>
+                          {getAppointmentDetails(a.notes).nota && (
+                            <p className="font-normal mt-0.5 line-clamp-2">Nota: {getAppointmentDetails(a.notes).nota}</p>
+                          )}
+                        </div>
                       ))
                     )}
                   </div>
@@ -256,6 +287,7 @@ export default function CalendarAdminClient({
                 <tr className="text-left font-label-sm text-label-sm text-secondary border-b border-outline-variant">
                   <th className="py-2 px-2">Fecha</th>
                   <th className="py-2 px-2">Cliente</th>
+                  <th className="py-2 px-2">Motivo y notas</th>
                   <th className="py-2 px-2">Estado</th>
                   <th className="py-2 px-2">Acciones</th>
                 </tr>
@@ -266,7 +298,14 @@ export default function CalendarAdminClient({
                     <td className="py-2 px-2 whitespace-nowrap">{fmt(a.starts_at)}</td>
                     <td className="py-2 px-2">
                       <span className="font-medium">{a.full_name}</span>
-                      <span className="text-secondary"> · {a.email}</span>
+                      <span className="block text-secondary">{a.email || "Sin correo"}</span>
+                      <span className="block text-secondary">Tel: {a.phone ?? "No proporcionado"}</span>
+                    </td>
+                    <td className="py-2 px-2 min-w-56">
+                      <span className="block">{getAppointmentDetails(a.notes).motivo || "No especificado"}</span>
+                      {getAppointmentDetails(a.notes).nota && (
+                        <span className="block text-secondary text-xs mt-1 line-clamp-3">{getAppointmentDetails(a.notes).nota}</span>
+                      )}
                     </td>
                     <td className="py-2 px-2">
                       <span

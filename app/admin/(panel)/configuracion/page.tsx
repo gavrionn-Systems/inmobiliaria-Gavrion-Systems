@@ -2,7 +2,9 @@ import { redirect } from "next/navigation";
 import { getSession } from "@/lib/auth";
 import { isAdminRole, isDesignerRole, isTemplateAdminRole } from "@/lib/demo-auth";
 import { getSiteSettings } from "@/lib/site-settings";
+import { getChatboxSettings } from "@/lib/chatbox";
 import type { SiteSettingsInput } from "@/lib/site-settings-actions";
+import ChatboxSettingsForm from "./ChatboxSettingsForm";
 import SiteSettingsForm from "./SiteSettingsForm";
 
 export const metadata = {
@@ -36,7 +38,7 @@ export default async function AdminConfiguracionPage() {
     redirect("/admin?error=forbidden");
   }
 
-  const settings = await getSiteSettings();
+  const [settings, chatbox] = await Promise.all([getSiteSettings(), getChatboxSettings()]);
   const initial: SiteSettingsInput = {
     name: settings.name,
     url: settings.url,
@@ -119,6 +121,11 @@ export default async function AdminConfiguracionPage() {
         </p>
       </header>
       <SiteSettingsForm initial={initial} isCompanyAdmin={isAdminRole(session.user.role)} />
+      <ChatboxSettingsForm
+        initial={chatbox}
+        installBaseUrl={(settings.url || process.env.APP_BASE_URL || "").replace(/\/$/, "")}
+        canEdit={isAdminRole(session.user.role) || isTemplateAdminRole(session.user.role) || isDesignerRole(session.user.role)}
+      />
     </>
   );
 }
