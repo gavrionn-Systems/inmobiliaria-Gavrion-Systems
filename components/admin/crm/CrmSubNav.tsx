@@ -4,18 +4,15 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { crmNav } from "@/lib/site";
 
-export default function CrmSubNav({ isAdmin }: { isAdmin: boolean }) {
+export default function CrmSubNav() {
   const pathname = usePathname();
-  const items = crmNav.filter(
-    (item) => !("adminOnly" in item) || isAdmin
-  );
 
   return (
     <nav
       aria-label="Secciones del CRM"
       className="mb-8 flex gap-1 overflow-x-auto custom-scrollbar border-b border-outline-variant"
     >
-      {items.map((item) => {
+      {crmNav.map((item) => {
         const active = pathname.startsWith(item.href);
         return (
           <Link
