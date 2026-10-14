@@ -57,11 +57,4 @@ export const crmNav = [
     icon: "view_kanban",
   },
   { key: "tareas", label: "Tareas", href: "/admin/crm/tareas", icon: "task_alt" },
-  {
-    key: "configuracion",
-    label: "Configuración",
-    href: "/admin/crm/configuracion",
-    icon: "settings",
-    adminOnly: true,
-  },
 ] as const;
