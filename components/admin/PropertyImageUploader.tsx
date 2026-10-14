@@ -135,6 +135,7 @@ export default function PropertyImageUploader({
     const ext = blobType === "image/png" ? "png" : blobType === "image/jpeg" ? "jpg" : "webp";
     const mimeForUpload = blobType === "image/png" || blobType === "image/jpeg" || blobType === "image/webp" ? blobType : "image/webp";
     formData.append("file", new File([blob], `imagen.${ext}`, { type: mimeForUpload }));
+    formData.append("scope", "property");
     if (folder) formData.append("folder", folder);
 
     try {
@@ -159,7 +160,7 @@ export default function PropertyImageUploader({
     onChange(value.filter((_, i) => i !== index));
     if (!sessionUploads.current.has(item.url)) return;
     sessionUploads.current.delete(item.url);
-    const result = await deletePropertyImage(item.url);
+    const result = await deletePropertyImage(item.url, "property");
     if (!result.ok) {
       setError(
         `${result.error} La imagen se quitó del formulario, pero la limpieza quedó pendiente.`

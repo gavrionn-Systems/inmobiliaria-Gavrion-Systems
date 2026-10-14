@@ -30,7 +30,13 @@ const STATUS_LABELS: Record<string, { label: string; cls: string }> = {
   archivada: { label: "Archivada", cls: "bg-surface-variant text-on-surface-variant" },
 };
 
-export default function AdminPropertiesTable({ rows }: { rows: PropertyRow[] }) {
+export default function AdminPropertiesTable({
+  rows,
+  canManage = false,
+}: {
+  rows: PropertyRow[];
+  canManage?: boolean;
+}) {
   const router = useRouter();
   const [, startTransition] = useTransition();
   const [error, setError] = useState<string | null>(null);
@@ -59,17 +65,19 @@ export default function AdminPropertiesTable({ rows }: { rows: PropertyRow[] }) 
           Todavía no hay propiedades
         </h2>
         <p className="font-body-md text-body-md text-secondary mb-6 max-w-md mx-auto">
-          Cree la primera propiedad con el botón &quot;Nueva Propiedad&quot;.
-          Queda en borrador hasta que la publique; el sitio público solo muestra
-          fichas en estado Publicada.
+          {canManage
+            ? 'Cree la primera propiedad con el botón "Nueva Propiedad". Queda en borrador hasta que la publique; el sitio público solo muestra fichas en estado Publicada.'
+            : "Cuando el administrador registre propiedades, podrá consultarlas aquí. Las fichas públicas deben estar en estado Publicada."}
         </p>
-        <Link
-          href="/admin/propiedades/nueva"
-          className="bg-primary text-on-primary font-label-md text-label-md px-6 py-3 rounded inline-flex items-center gap-2 hover:bg-primary-fixed-dim hover:text-on-primary-fixed transition-colors"
-        >
-          <span className="material-symbols-outlined text-base">add</span>
-          Nueva Propiedad
-        </Link>
+        {canManage ? (
+          <Link
+            href="/admin/propiedades/nueva"
+            className="bg-primary text-on-primary font-label-md text-label-md px-6 py-3 rounded inline-flex items-center gap-2 hover:bg-primary-fixed-dim hover:text-on-primary-fixed transition-colors"
+          >
+            <span className="material-symbols-outlined text-base">add</span>
+            Nueva Propiedad
+          </Link>
+        ) : null}
       </div>
     );
   }
@@ -129,12 +137,18 @@ export default function AdminPropertiesTable({ rows }: { rows: PropertyRow[] }) 
                         )}
                       </div>
                       <div className="min-w-0">
-                        <Link
-                          href={`/admin/propiedades/${p.id}/editar`}
-                          className="font-label-md text-label-md text-on-surface hover:text-primary truncate block"
-                        >
-                          {p.title}
-                        </Link>
+                        {canManage ? (
+                          <Link
+                            href={`/admin/propiedades/${p.id}/editar`}
+                            className="font-label-md text-label-md text-on-surface hover:text-primary truncate block"
+                          >
+                            {p.title}
+                          </Link>
+                        ) : (
+                          <p className="font-label-md text-label-md text-on-surface truncate">
+                            {p.title}
+                          </p>
+                        )}
                         <p className="font-label-sm text-label-sm text-secondary truncate">
                           {p.code} · {p.categories?.name ?? "Sin categoría"} ·{" "}
                           {p.locations?.name ?? "Sin ubicación"}
@@ -146,26 +160,32 @@ export default function AdminPropertiesTable({ rows }: { rows: PropertyRow[] }) 
                     {formatPrice(p.price, p.currency, p.operation)}
                   </td>
                   <td className="px-4 py-3">
-                    <select
-                      value={p.status}
-                      disabled={busy}
-                      onChange={(e) =>
-                        run(() => setPropertyStatus(p.id, e.target.value))
-                      }
-                      className={`font-label-sm text-label-sm px-2 py-2 rounded border border-outline-variant ${status.cls}`}
-                      aria-label={`Estado de ${p.title}`}
-                    >
-                      {Object.entries(STATUS_LABELS).map(([value, s]) => (
-                        <option key={value} value={value}>
-                          {s.label}
-                        </option>
-                      ))}
-                    </select>
+                    {canManage ? (
+                      <select
+                        value={p.status}
+                        disabled={busy}
+                        onChange={(e) =>
+                          run(() => setPropertyStatus(p.id, e.target.value))
+                        }
+                        className={`font-label-sm text-label-sm px-2 py-2 rounded border border-outline-variant ${status.cls}`}
+                        aria-label={`Estado de ${p.title}`}
+                      >
+                        {Object.entries(STATUS_LABELS).map(([value, s]) => (
+                          <option key={value} value={value}>
+                            {s.label}
+                          </option>
+                        ))}
+                      </select>
+                    ) : (
+                      <span className={`font-label-sm text-label-sm px-2 py-2 rounded ${status.cls}`}>
+                        {status.label}
+                      </span>
+                    )}
                   </td>
                   <td className="px-4 py-3">
                     <button
                       type="button"
-                      disabled={busy}
+                      disabled={busy || !canManage}
                       onClick={() =>
                         run(() => toggleFeatured(p.id, !p.is_featured))
                       }
@@ -194,16 +214,18 @@ export default function AdminPropertiesTable({ rows }: { rows: PropertyRow[] }) 
                   </td>
                   <td className="px-4 py-3">
                     <div className="flex items-center gap-2 justify-end">
-                      <Link
-                        href={`/admin/propiedades/${p.id}/editar`}
-                        aria-label={`Editar ${p.title}`}
-                        className="p-2.5 rounded hover:bg-surface-container-high text-secondary hover:text-primary transition-colors"
-                      >
-                        <span className="material-symbols-outlined text-lg">
-                          edit
-                        </span>
-                      </Link>
-                      {confirmDelete === p.id ? (
+                      {canManage ? (
+                        <Link
+                          href={`/admin/propiedades/${p.id}/editar`}
+                          aria-label={`Editar ${p.title}`}
+                          className="p-2.5 rounded hover:bg-surface-container-high text-secondary hover:text-primary transition-colors"
+                        >
+                          <span className="material-symbols-outlined text-lg">
+                            edit
+                          </span>
+                        </Link>
+                      ) : null}
+                      {canManage && confirmDelete === p.id ? (
                         <span className="flex items-center gap-1">
                           <button
                             type="button"
@@ -224,7 +246,7 @@ export default function AdminPropertiesTable({ rows }: { rows: PropertyRow[] }) 
                             Cancelar
                           </button>
                         </span>
-                      ) : (
+                      ) : canManage ? (
                         <button
                           type="button"
                           onClick={() => setConfirmDelete(p.id)}
@@ -235,7 +257,7 @@ export default function AdminPropertiesTable({ rows }: { rows: PropertyRow[] }) 
                             delete
                           </span>
                         </button>
-                      )}
+                      ) : null}
                     </div>
                   </td>
                 </tr>
