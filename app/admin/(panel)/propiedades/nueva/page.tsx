@@ -1,4 +1,6 @@
+import { redirect } from "next/navigation";
 import PropertyForm from "@/components/admin/PropertyForm";
+import { getSession } from "@/lib/auth";
 import { getCategoriesPublic } from "@/lib/queries";
 
 export const metadata = {
@@ -6,6 +8,11 @@ export const metadata = {
 };
 
 export default async function NewPropertyPage() {
+  const session = await getSession();
+  if (!session || session.user.role !== "admin") {
+    redirect("/admin/propiedades?error=forbidden");
+  }
+
   const categories = await getCategoriesPublic();
 
   return (

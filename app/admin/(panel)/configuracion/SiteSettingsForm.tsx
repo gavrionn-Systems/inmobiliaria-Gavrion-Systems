@@ -68,9 +68,11 @@ function Field({
 export default function SiteSettingsForm({
   initial,
   isCompanyAdmin = false,
+  isDesigner = false,
 }: {
   initial: SiteSettingsInput;
   isCompanyAdmin?: boolean;
+  isDesigner?: boolean;
 }) {
   const router = useRouter();
   const heroInputRef = useRef<HTMLInputElement>(null);
@@ -84,7 +86,9 @@ export default function SiteSettingsForm({
   const [activeSection, setActiveSection] = useState<EditorSectionId>("identity");
   const visibleSections = isCompanyAdmin
     ? editorSections.filter((section) => !["admin", "theme", "search", "performance", "cache", "experience", "indexing"].includes(section.id))
-    : editorSections;
+    : isDesigner
+      ? editorSections.filter((section) => !["search", "performance", "cache", "experience", "indexing"].includes(section.id))
+      : editorSections;
 
   function set<K extends keyof SiteSettingsInput>(
     key: K,
@@ -146,6 +150,7 @@ export default function SiteSettingsForm({
     const formData = new FormData();
     formData.append("file", file);
     formData.append("folder", "site-hero");
+    formData.append("scope", "site");
 
     const result = await uploadPropertyImage(formData);
     setUploadingHero(false);
@@ -159,7 +164,7 @@ export default function SiteSettingsForm({
     set("heroImageUrl", result.url);
 
     if (previousUrl && previousUrl !== result.url) {
-      await deletePropertyImage(previousUrl);
+      await deletePropertyImage(previousUrl, "site");
     }
   }
 
@@ -184,6 +189,7 @@ export default function SiteSettingsForm({
     const formData = new FormData();
     formData.append("file", file);
     formData.append("folder", "site-logo");
+    formData.append("scope", "site");
 
     const result = await uploadPropertyImage(formData);
     setUploadingLogo(false);
@@ -197,7 +203,7 @@ export default function SiteSettingsForm({
     set("logoUrl", result.url);
 
     if (previousUrl && previousUrl !== result.url) {
-      await deletePropertyImage(previousUrl);
+      await deletePropertyImage(previousUrl, "site");
     }
   }
 

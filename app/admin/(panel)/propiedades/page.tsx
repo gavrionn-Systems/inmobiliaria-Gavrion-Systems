@@ -1,9 +1,14 @@
 import Link from "next/link";
 import AdminPropertiesTable from "@/components/admin/AdminPropertiesTable";
+import { getSession } from "@/lib/auth";
 import { getPropertiesAdmin } from "@/lib/admin-queries";
 
 export default async function AdminPropertiesPage() {
-  const properties = await getPropertiesAdmin();
+  const [properties, session] = await Promise.all([
+    getPropertiesAdmin(),
+    getSession(),
+  ]);
+  const canManage = session?.user.role === "admin";
 
   return (
     <>
@@ -17,16 +22,18 @@ export default async function AdminPropertiesPage() {
             instante en el sitio público.
           </p>
         </div>
-        <Link
-          href="/admin/propiedades/nueva"
-          className="bg-primary text-on-primary font-label-md text-label-md px-6 py-3 rounded hover:bg-primary-fixed-dim hover:text-on-primary-fixed transition-colors inline-flex items-center gap-2"
-        >
-          <span className="material-symbols-outlined text-base">add</span>
-          Nueva Propiedad
-        </Link>
+        {canManage ? (
+          <Link
+            href="/admin/propiedades/nueva"
+            className="bg-primary text-on-primary font-label-md text-label-md px-6 py-3 rounded hover:bg-primary-fixed-dim hover:text-on-primary-fixed transition-colors inline-flex items-center gap-2"
+          >
+            <span className="material-symbols-outlined text-base">add</span>
+            Nueva Propiedad
+          </Link>
+        ) : null}
       </header>
 
-      <AdminPropertiesTable rows={properties} />
+      <AdminPropertiesTable rows={properties} canManage={canManage} />
     </>
   );
 }

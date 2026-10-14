@@ -120,7 +120,11 @@ export default async function AdminConfiguracionPage() {
           logo, contenido, panel interno y configuración — todo sin tocar código.
         </p>
       </header>
-      <SiteSettingsForm initial={initial} isCompanyAdmin={isAdminRole(session.user.role)} />
+      <SiteSettingsForm
+        initial={initial}
+        isCompanyAdmin={isAdminRole(session.user.role)}
+        isDesigner={isDesignerRole(session.user.role)}
+      />
       <ChatboxSettingsForm
         initial={chatbox}
         installBaseUrl={(settings.url || process.env.APP_BASE_URL || "").replace(/\/$/, "")}

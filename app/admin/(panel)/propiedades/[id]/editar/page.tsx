@@ -1,5 +1,7 @@
 import Link from "next/link";
+import { redirect } from "next/navigation";
 import PropertyForm from "@/components/admin/PropertyForm";
+import { getSession } from "@/lib/auth";
 import { getPropertyForEdit } from "@/lib/admin-queries";
 import { getCategoriesPublic } from "@/lib/queries";
 
@@ -12,6 +14,11 @@ export default async function EditPropertyPage({
 }: {
   params: Promise<{ id: string }>;
 }) {
+  const session = await getSession();
+  if (!session || session.user.role !== "admin") {
+    redirect("/admin/propiedades?error=forbidden");
+  }
+
   const { id } = await params;
   const [property, categories] = await Promise.all([
     getPropertyForEdit(id),
