@@ -18,11 +18,12 @@ export const TEMPLATE_ONLY_NAV_KEYS = ["configuracion"] as const;
 
 /** Matriz de permisos por acción. Si se agrega una acción nueva, añadir aquí. */
 export const PERMISSIONS = {
-  // Propiedades: ambos pueden crear/editar/listar; borrar/publicar restringido según necesidad futura
+  // El agente consulta el catálogo, pero la administración del inventario
+  // queda reservada al administrador de la empresa.
   "properties:read": ["admin", "agente"],
-  "properties:write": ["admin", "agente"],
-  "properties:delete": ["admin", "agente"], // hoy ambos; cambiar a ["admin"] si se quiere flujo aprobación
-  "properties:publish": ["admin", "agente"],
+  "properties:write": ["admin"],
+  "properties:delete": ["admin"],
+  "properties:publish": ["admin"],
   // Taxonomía y config
   "categories:manage": ["admin"],
   "locations:manage": ["admin"],

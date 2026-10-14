@@ -41,7 +41,12 @@ function pathFromPublicUrl(url: string): string | null {
 export async function uploadPropertyImage(
   formData: FormData
 ): Promise<UploadResult> {
-  const session = await authorize(["admin", "agente"]);
+  const scope = formData.get("scope") === "site" ? "site" : "property";
+  const session = await authorize(
+    scope === "site"
+      ? (["admin", "template_admin", "designer"] as const)
+      : (["admin"] as const)
+  );
   if (!session) {
     return { ok: false, error: "No tiene permisos para subir imágenes." };
   }
@@ -58,6 +63,9 @@ export async function uploadPropertyImage(
   }
 
   const folder = safeFolder(formData.get("folder"));
+  if (scope === "site" && folder !== "site-hero" && folder !== "site-logo") {
+    return { ok: false, error: "No tiene permisos para subir imágenes en esa carpeta." };
+  }
   const path = `${folder}/${crypto.randomUUID()}.${EXTENSION[file.type]}`;
 
   const supabase = createAdminClient();
@@ -81,8 +89,15 @@ export async function uploadPropertyImage(
   return { ok: true, url: data.publicUrl };
 }
 
-export async function deletePropertyImage(url: string): Promise<UploadResult> {
-  const session = await authorize(["admin", "agente"]);
+export async function deletePropertyImage(
+  url: string,
+  scope: "property" | "site" = "property"
+): Promise<UploadResult> {
+  const session = await authorize(
+    scope === "site"
+      ? (["admin", "template_admin", "designer"] as const)
+      : (["admin"] as const)
+  );
   if (!session) {
     return { ok: false, error: "No tiene permisos para eliminar imágenes." };
   }
@@ -90,6 +105,11 @@ export async function deletePropertyImage(url: string): Promise<UploadResult> {
   const path = pathFromPublicUrl(url);
   // Las imágenes externas solo se quitan del formulario; no hay archivo que borrar.
   if (!path) return { ok: true, url };
+
+  const isSiteAsset = path.startsWith("site-hero/") || path.startsWith("site-logo/");
+  if ((scope === "site" && !isSiteAsset) || (scope === "property" && isSiteAsset)) {
+    return { ok: false, error: "No tiene permisos para eliminar esta imagen." };
+  }
 
   const supabase = createAdminClient();
   const { error } = await supabase.storage

@@ -107,7 +107,7 @@ async function resolveLocationId(
 /* ============ Propiedades ============ */
 
 export async function saveProperty(input: PropertyInput): Promise<ActionResult> {
-  const denied = await requireSession();
+  const denied = await requireAdmin();
   if (denied) return denied;
 
   const parsed = propertyInputSchema.safeParse(input);
@@ -224,7 +224,7 @@ export async function saveProperty(input: PropertyInput): Promise<ActionResult> 
 }
 
 export async function deleteProperty(id: string): Promise<ActionResult> {
-  const denied = await requireSession();
+  const denied = await requireAdmin();
   if (denied) return denied;
   if (!uuidSchema.safeParse(id).success) return invalidId();
 
@@ -237,7 +237,7 @@ export async function deleteProperty(id: string): Promise<ActionResult> {
 }
 
 export async function setPropertyStatus(id: string, status: string): Promise<ActionResult> {
-  const denied = await requireSession();
+  const denied = await requireAdmin();
   if (denied) return denied;
   if (!uuidSchema.safeParse(id).success) return invalidId();
   if (!propertyStatusSchema.safeParse(status).success) {
@@ -259,7 +259,7 @@ export async function setPropertyStatus(id: string, status: string): Promise<Act
 }
 
 export async function toggleFeatured(id: string, featured: boolean): Promise<ActionResult> {
-  const denied = await requireSession();
+  const denied = await requireAdmin();
   if (denied) return denied;
   if (!uuidSchema.safeParse(id).success) return invalidId();
 
