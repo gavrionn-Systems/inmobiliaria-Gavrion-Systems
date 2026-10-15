@@ -42,6 +42,7 @@ export async function getProfiles() {
   const { data, error } = await supabase
     .from("profiles")
     .select("*")
+    .in("role", ["admin", "agente"])
     .order("created_at", { ascending: false });
   if (error) throw error;
   return data;
@@ -123,6 +124,7 @@ export async function getTeamDirectory(): Promise<TeamMember[]> {
     .select(
       "id, full_name, email, phone, avatar_url, role, is_active, created_at, updated_at"
     )
+    .in("role", ["admin", "agente"])
     .order("created_at", { ascending: false });
   if (error) throw error;
   return hydrateTeamMembers((data ?? []) as ProfileRow[]);
@@ -136,6 +138,7 @@ export async function getTeamMember(id: string): Promise<TeamMember | null> {
       "id, full_name, email, phone, avatar_url, role, is_active, created_at, updated_at"
     )
     .eq("id", id)
+    .in("role", ["admin", "agente"])
     .maybeSingle();
   if (error) throw error;
   if (!data) return null;
