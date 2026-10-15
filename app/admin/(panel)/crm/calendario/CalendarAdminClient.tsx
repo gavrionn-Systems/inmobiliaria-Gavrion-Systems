@@ -253,7 +253,7 @@ export default function CalendarAdminClient({
                         <div
                           key={a.id}
                           className={[
-                            "px-2 py-1 rounded text-xs font-label-sm border min-w-48",
+                            "min-w-48 max-w-full break-words px-2 py-1 rounded text-xs font-label-sm border",
                             a.status === "confirmada"
                               ? "bg-emerald-100 text-emerald-800 border-emerald-200"
                               : a.status === "pendiente"

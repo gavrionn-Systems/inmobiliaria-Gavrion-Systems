@@ -672,7 +672,7 @@ export default function SiteSettingsForm({
             {values.aboutStats.map((stat, index) => (
               <div
                 key={`stat-${index}`}
-                className="grid grid-cols-[7rem_1fr] gap-2"
+                className="grid grid-cols-1 sm:grid-cols-[7rem_minmax(0,1fr)] gap-2"
               >
                 <Field label={`Cifra ${index + 1}`}>
                   <input
