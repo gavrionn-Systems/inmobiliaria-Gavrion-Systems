@@ -226,9 +226,9 @@ export default function AppointmentCalendar({
       {/* Selected day + slots */}
       <div className="px-5 md:px-6 py-5 flex-1">
         <div className="flex items-baseline justify-between gap-3 mb-3">
-          <h4 className="font-headline-md text-headline-md text-on-surface capitalize text-[18px] leading-tight">{formatLong(selectedDate)}</h4>
+          <h4 className="min-w-0 flex-1 font-headline-md text-headline-md text-on-surface capitalize text-[18px] leading-tight break-words">{formatLong(selectedDate)}</h4>
           {!loading && !error && slots.length > 0 && (
-            <span className="font-label-sm text-label-sm text-secondary whitespace-nowrap">
+            <span className="shrink-0 font-label-sm text-label-sm text-secondary whitespace-nowrap">
               {availableCount} {availableCount === 1 ? "disponible" : "disponibles"}
             </span>
           )}

@@ -274,7 +274,7 @@ export default function ImageCropper({
       aria-label="Recortar imagen"
       className="fixed inset-0 z-50 bg-black/60 flex items-center justify-center p-4"
     >
-      <div className="bg-surface-container-low rounded-lg border border-outline-variant w-full max-w-2xl max-h-full overflow-y-auto p-6 flex flex-col gap-4">
+      <div className="bg-surface-container-low rounded-lg border border-outline-variant w-full max-w-2xl max-h-[calc(100dvh-2rem)] overflow-y-auto p-4 sm:p-6 flex flex-col gap-4">
         <div>
           <h2 className="font-headline-md text-headline-md text-on-surface">
             Ajustar encuadre

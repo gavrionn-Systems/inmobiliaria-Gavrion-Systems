@@ -163,7 +163,7 @@ export default function PropertyForm({
               placeholder="auto-generado desde el título"
             />
           </label>
-          <div className="grid grid-cols-2 gap-4">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <label className={labelCls}>
               Operación
               <select
@@ -248,7 +248,7 @@ export default function PropertyForm({
         <legend className="font-headline-md text-headline-md text-on-surface px-2">
           Clasificación y medidas
         </legend>
-        <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
+        <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-5 gap-4">
           <label className={labelCls}>
             Categoría
             <select
