@@ -209,11 +209,11 @@ export default async function ContactoPage({
               rel="noopener"
               className="absolute bottom-3 left-3 right-3 rounded-full bg-surfaceContainerLowest/95 backdrop-blur border border-outline-variant px-3 py-2 flex items-center justify-between font-label-sm text-label-sm text-on-surface shadow-sm hover:border-primary-container transition-colors"
             >
-              <span className="flex items-center gap-2">
+              <span className="min-w-0 flex items-center gap-2">
                 <span className="material-symbols-outlined text-primary text-[18px]" aria-hidden>open_in_new</span>
-                Ver en Google Maps
+                <span className="truncate">Ver en Google Maps</span>
               </span>
-              <span className="text-secondary">{settings.address.city || settings.address.line1}</span>
+              <span className="max-w-[45%] truncate text-secondary">{settings.address.city || settings.address.line1}</span>
             </a>
           </div>
 
