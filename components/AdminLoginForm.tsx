@@ -37,7 +37,7 @@ export default function AdminLoginForm() {
   }
 
   return (
-    <form className="flex flex-col gap-4" onSubmit={login}>
+    <form className="flex flex-col gap-5" onSubmit={login}>
       {error && (
         <p
           role="alert"
@@ -46,40 +46,48 @@ export default function AdminLoginForm() {
           {error}
         </p>
       )}
-      <label className="flex flex-col">
-        <span className="font-label-sm text-label-sm text-secondary mb-1">
-          Usuario o email
+      <label className="flex flex-col gap-1.5">
+        <span className="font-label-sm text-label-sm font-medium text-on-surface">
+          Usuario o correo electrónico
         </span>
-        <input
-          type="text"
-          name="identifier"
-          required
-          autoComplete="username"
-          value={identifier}
-          onChange={(e) => setIdentifier(e.target.value)}
-          className="bg-surface rounded border border-outline-variant px-3 py-2.5 font-body-md text-body-md text-on-surface placeholder:text-secondary outline-none focus:border-primary"
-        />
+        <div className="relative">
+          <span className="material-symbols-outlined pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-xl text-secondary" aria-hidden="true">person</span>
+          <input
+            type="text"
+            name="identifier"
+            required
+            autoComplete="username"
+            autoCapitalize="none"
+            spellCheck={false}
+            placeholder="usuario o correo"
+            value={identifier}
+            onChange={(e) => setIdentifier(e.target.value)}
+            className="min-h-12 w-full rounded-xl border border-outline-variant bg-surface px-3 py-2.5 pl-11 font-body-md text-body-md text-on-surface outline-none transition-colors placeholder:text-secondary/70 focus:border-primary focus:ring-4 focus:ring-primary/10"
+          />
+        </div>
       </label>
-      <label className="flex flex-col">
-        <span className="font-label-sm text-label-sm text-secondary mb-1">
+      <label className="flex flex-col gap-1.5">
+        <span className="font-label-sm text-label-sm font-medium text-on-surface">
           Contraseña
         </span>
         <div className="relative">
+          <span className="material-symbols-outlined pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-xl text-secondary" aria-hidden="true">lock</span>
           <input
             type={showPassword ? "text" : "password"}
             name="password"
             required
             autoComplete="current-password"
+            placeholder="Ingrese su contraseña"
             value={password}
             onChange={(e) => setPassword(e.target.value)}
-            className="w-full bg-surface rounded border border-outline-variant px-3 py-2.5 pr-11 font-body-md text-body-md text-on-surface placeholder:text-secondary outline-none focus:border-primary"
+            className="min-h-12 w-full rounded-xl border border-outline-variant bg-surface px-3 py-2.5 pl-11 pr-11 font-body-md text-body-md text-on-surface outline-none transition-colors placeholder:text-secondary/70 focus:border-primary focus:ring-4 focus:ring-primary/10"
           />
           <button
             type="button"
             onClick={() => setShowPassword((v) => !v)}
             aria-label={showPassword ? "Ocultar contraseña" : "Mostrar contraseña"}
             aria-pressed={showPassword}
-            className="absolute inset-y-0 right-0 flex items-center justify-center w-11 text-secondary hover:text-primary transition-colors cursor-pointer"
+            className="absolute inset-y-0 right-0 flex w-11 items-center justify-center rounded-r-xl text-secondary transition-colors hover:text-primary"
           >
             <span aria-hidden="true" className="material-symbols-outlined text-xl">
               {showPassword ? "visibility_off" : "visibility"}
@@ -90,7 +98,7 @@ export default function AdminLoginForm() {
       <button
         type="submit"
         disabled={loading}
-        className="bg-primary text-on-primary font-label-md text-label-md py-3 rounded hover:bg-primary-fixed-dim hover:text-on-primary-fixed transition-colors mt-2 disabled:opacity-60"
+        className="mt-2 inline-flex min-h-12 w-full items-center justify-center rounded-xl bg-primary px-5 py-3 font-label-md text-label-md text-on-primary shadow-sm transition-all hover:-translate-y-0.5 hover:bg-primary-fixed-dim hover:text-on-primary-fixed hover:shadow-md disabled:cursor-wait disabled:opacity-60"
       >
         {loading ? "Ingresando…" : "Iniciar sesión"}
       </button>
