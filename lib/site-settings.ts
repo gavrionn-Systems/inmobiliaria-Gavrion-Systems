@@ -187,8 +187,8 @@ export const FALLBACK_SITE_SETTINGS: SiteSettings = {
   },
   hours:
     "Lunes a viernes, 8:00 a.m. – 5:00 p.m.\nSábados, 9:00 a.m. – 1:00 p.m.",
-  adminLoginTitle: "Panel de administración",
-  adminLoginSubtitle: "Ingrese sus credenciales para acceder al panel.",
+  adminLoginTitle: "Acceso administrativo",
+  adminLoginSubtitle: "Inicia sesión para gestionar tu catálogo y la operación de la empresa.",
   adminPanelLabel: "Panel de administración",
   adminWelcomeTitle: "Panel de administración",
   adminWelcomeSubtitle: "Bienvenido de vuelta — aquí está el estado de su catálogo.",
