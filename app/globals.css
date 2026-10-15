@@ -136,6 +136,8 @@
     font-family: var(--font-inter);
     background-color: var(--color-surface);
     color: var(--color-on-surface);
+    max-width: 100%;
+    overflow-x: hidden;
   }
 
   h1,
