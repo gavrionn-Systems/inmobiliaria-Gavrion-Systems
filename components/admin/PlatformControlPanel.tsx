@@ -173,7 +173,7 @@ export default function PlatformControlPanel({ companies, users, runs, audit, re
   }
 
   async function archiveUser(id: string) {
-    if (!window.confirm("El usuario quedará desactivado. ¿Continuar?")) return;
+    if (!window.confirm("El usuario quedará bloqueado y no podrá iniciar sesión. ¿Continuar?")) return;
     const result = await archiveManagedUser(id);
     setMessage(resultMessage(result));
     if (result.ok) router.refresh();
@@ -298,8 +298,8 @@ export default function PlatformControlPanel({ companies, users, runs, audit, re
             {users.length === 0 ? <Empty text="Todavía no hay usuarios registrados." /> : users.map((user) => {
               const company = companies.find((item) => item.id === user.company_id);
               return <article key={user.id} className="flex flex-wrap items-center justify-between gap-4 rounded-xl border border-outline-variant bg-surface-container-low p-5">
-                <div><h3 className="font-label-md font-semibold text-on-surface">{user.full_name}</h3><p className="text-sm text-secondary">Usuario: {isInternalUserEmail(user.email) ? usernameFromStoredEmail(user.email) : user.email} · {company?.name ?? "Empresa eliminada"}</p><span className="mt-2 inline-flex rounded-full bg-surface-container-highest px-2.5 py-1 text-xs text-secondary">{roleLabels[user.role]} · {user.is_active ? "Activo" : "Inactivo"}</span></div>
-                <div className="flex flex-wrap gap-2"><button type="button" onClick={() => setEditingUser(user)} className="rounded-lg border border-outline-variant px-3 py-2 text-sm text-secondary hover:bg-surface-container-high">Editar</button><button type="button" onClick={() => resetUser(user.id)} className="rounded-lg border border-outline-variant px-3 py-2 text-sm text-secondary hover:bg-surface-container-high">Restablecer contraseña</button>{user.is_active ? <button type="button" onClick={() => archiveUser(user.id)} className="rounded-lg border border-error px-3 py-2 text-sm text-error hover:bg-error-container">Desactivar</button> : null}<button type="button" onClick={() => deleteUser(user.id)} className="rounded-lg border border-error px-3 py-2 text-sm text-error hover:bg-error-container">Eliminar</button></div>
+                <div><h3 className="font-label-md font-semibold text-on-surface">{user.full_name}</h3><p className="text-sm text-secondary">Usuario: {isInternalUserEmail(user.email) ? usernameFromStoredEmail(user.email) : user.email} · {company?.name ?? "Empresa eliminada"}</p><span className="mt-2 inline-flex rounded-full bg-surface-container-highest px-2.5 py-1 text-xs text-secondary">{roleLabels[user.role]} · {user.is_active ? "Activo" : "Bloqueado"}</span></div>
+                <div className="flex flex-wrap gap-2"><button type="button" onClick={() => setEditingUser(user)} className="rounded-lg border border-outline-variant px-3 py-2 text-sm text-secondary hover:bg-surface-container-high">Editar</button><button type="button" onClick={() => resetUser(user.id)} className="rounded-lg border border-outline-variant px-3 py-2 text-sm text-secondary hover:bg-surface-container-high">Restablecer contraseña</button>{user.is_active ? <button type="button" onClick={() => archiveUser(user.id)} className="rounded-lg border border-error px-3 py-2 text-sm text-error hover:bg-error-container">Bloquear</button> : null}<button type="button" onClick={() => deleteUser(user.id)} className="rounded-lg border border-error px-3 py-2 text-sm text-error hover:bg-error-container">Eliminar</button></div>
               </article>;
             })}
           </section>
