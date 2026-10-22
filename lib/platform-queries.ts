@@ -12,6 +12,7 @@ type ManagedCompany = {
 
 type ManagedUser = {
   id: string;
+  identity_id: string;
   company_id: string;
   auth_user_id: string | null;
   full_name: string;
@@ -19,6 +20,11 @@ type ManagedUser = {
   role: "company_admin" | "designer" | "agente";
   is_active: boolean;
   notes: string;
+};
+
+export type ManagedUserView = ManagedUser & {
+  company_ids: string[];
+  company_names: string[];
 };
 
 type RemoteProfile = {
@@ -83,7 +89,7 @@ async function syncCompanyUsers(
         const { data: inserted, error: insertError } = await supabase
           .from("managed_users")
           .insert({ company_id: company.id, ...patch, notes: "" })
-          .select("id, company_id, auth_user_id, full_name, email, role, is_active, notes")
+          .select("id, identity_id, company_id, auth_user_id, full_name, email, role, is_active, notes")
           .maybeSingle();
         if (!insertError && inserted) users.push(inserted as ManagedUser);
       }
@@ -117,9 +123,28 @@ export async function getPlatformOverview() {
     .order("created_at", { ascending: false });
   if (refreshedUsers.error) throw refreshedUsers.error;
 
+  const companyNames = new Map((companies.data ?? []).map((company) => [company.id, company.name]));
+  const groupedUsers = new Map<string, ManagedUserView>();
+  for (const row of (refreshedUsers.data ?? []) as ManagedUser[]) {
+    const identityId = row.identity_id ?? row.id;
+    const current = groupedUsers.get(identityId);
+    if (current) {
+      current.company_ids.push(row.company_id);
+      current.company_names.push(companyNames.get(row.company_id) ?? "Empresa eliminada");
+      current.is_active = current.is_active || row.is_active;
+      continue;
+    }
+    groupedUsers.set(identityId, {
+      ...row,
+      identity_id: identityId,
+      company_ids: [row.company_id],
+      company_names: [companyNames.get(row.company_id) ?? "Empresa eliminada"],
+    });
+  }
+
   return {
     companies: companies.data ?? [],
-    users: refreshedUsers.data ?? [],
+    users: [...groupedUsers.values()],
     runs: runs.data ?? [],
     audit: audit.data ?? [],
     releases: releases.data ?? [],

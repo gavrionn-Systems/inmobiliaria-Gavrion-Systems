@@ -8,7 +8,7 @@ import { getSession } from "@/lib/auth";
 import { isTemplateAdminRole } from "@/lib/demo-auth";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { decryptPlatformSecret, encryptPlatformSecret } from "@/lib/platform-security";
-import { isInternalUserEmail, usernameToInternalEmail } from "@/lib/user-identifiers";
+import { isInternalUserEmail, normalizeUsername, usernameToInternalEmail } from "@/lib/user-identifiers";
 
 export type PlatformActionResult =
   | { ok: true; id?: string; temporaryPassword?: string; message?: string }
@@ -30,9 +30,9 @@ const companySchema = z.object({
 });
 
 const userSchema = z.object({
-  companyId: z.uuid(),
+  companyIds: z.array(z.uuid()).min(1, "Seleccione al menos una empresa."),
   fullName: z.string().trim().min(2).max(120),
-  username: z.string().trim().toLowerCase().regex(/^[a-z0-9][a-z0-9._-]{2,59}$/, "Use un usuario de 3 a 60 caracteres: letras, números, punto, guion o guion bajo."),
+  username: z.string().trim().transform(normalizeUsername).pipe(z.string().regex(/^[a-z0-9][a-z0-9._-]{2,59}$/, "Use un usuario de 3 a 60 caracteres: letras, números, punto, guion o guion bajo.")),
   email: z.union([z.email().max(160), z.literal("")]).optional().default(""),
   role: z.enum(["company_admin", "designer", "agente"]),
   // El campo es opcional en el formulario. Un valor vacío (incluidos espacios)
@@ -48,6 +48,14 @@ const userSchema = z.object({
   ),
   notes: z.string().trim().max(2000),
 });
+
+function selectedCompanyIdsForRole(companyIds: string[], role: "company_admin" | "designer" | "agente") {
+  const uniqueCompanyIds = [...new Set(companyIds)];
+  if (role !== "designer" && uniqueCompanyIds.length !== 1) {
+    throw new Error("Solo el diseñador puede tener más de una empresa asignada.");
+  }
+  return uniqueCompanyIds;
+}
 
 const scriptSchema = z.object({
   companyId: z.uuid(),
@@ -223,54 +231,145 @@ export async function createManagedUser(input: unknown): Promise<PlatformActionR
   const parsed = userSchema.safeParse(input);
   if (!parsed.success) return { ok: false, error: parsed.error.issues[0]?.message ?? "Datos no válidos." };
   const data = parsed.data;
-  let company;
-  try { company = await getCompany(data.companyId); } catch (error) { return { ok: false, error: error instanceof Error ? error.message : "Empresa no encontrada." }; }
-  let remote;
-  try { remote = remoteClient(company); } catch (error) { return { ok: false, error: error instanceof Error ? error.message : "Conexión no configurada." }; }
+  let companyIds: string[];
+  try { companyIds = selectedCompanyIdsForRole(data.companyIds, data.role); } catch (error) { return { ok: false, error: error instanceof Error ? error.message : "Asignaciones no válidas." }; }
+  const admin = createAdminClient();
+  const { data: companies, error: companiesError } = await admin.from("managed_companies").select("*").in("id", companyIds);
+  if (companiesError || !companies || companies.length !== companyIds.length) return { ok: false, error: "Una o más empresas no existen o no están disponibles." };
   const email = data.email?.trim().toLowerCase() || usernameToInternalEmail(data.username);
   const password = data.temporaryPassword ?? generatedPassword();
-  const created = await remote.auth.admin.createUser({ email, password, email_confirm: true, user_metadata: { full_name: data.fullName, username: data.username } });
-  if (created.error || !created.data.user) return { ok: false, error: created.error?.message ?? "No se pudo crear la cuenta externa." };
-  const { error: profileError } = await remote.from("profiles").upsert({ id: created.data.user.id, full_name: data.fullName, email, role: remoteRole(data.role), is_active: true }, { onConflict: "id" });
-  if (profileError) { await remote.auth.admin.deleteUser(created.data.user.id); return { ok: false, error: "La cuenta se creó, pero no se pudo configurar su perfil." }; }
-  const { data: localUser, error } = await createAdminClient().from("managed_users").insert({ company_id: data.companyId, auth_user_id: created.data.user.id, full_name: data.fullName, email, role: data.role, notes: data.notes }).select("id").single();
-  if (error) { await remote.auth.admin.deleteUser(created.data.user.id); return { ok: false, error: error.code === "23505" ? "Ese usuario o email ya está registrado para la empresa." : "No se pudo registrar el usuario en el panel general." }; }
-  await audit({ actorId: auth.userId, companyId: data.companyId, action: "user.created", entityType: "managed_user", entityId: localUser.id, metadata: { role: data.role, username: data.username } });
+  const createdAccounts: Array<{ company: typeof companies[number]; authUserId: string }> = [];
+  try {
+    for (const companyId of companyIds) {
+      const company = companies.find((item) => item.id === companyId);
+      if (!company) throw new Error("Empresa no encontrada.");
+      const remote = remoteClient(company);
+      const created = await remote.auth.admin.createUser({ email, password, email_confirm: true, user_metadata: { full_name: data.fullName, username: data.username } });
+      if (created.error || !created.data.user) throw new Error(created.error?.message ?? "No se pudo crear la cuenta externa.");
+      const { error: profileError } = await remote.from("profiles").upsert({ id: created.data.user.id, full_name: data.fullName, email, role: remoteRole(data.role), is_active: true }, { onConflict: "id" });
+      if (profileError) {
+        await remote.auth.admin.deleteUser(created.data.user.id);
+        throw new Error("La cuenta se creó, pero no se pudo configurar su perfil.");
+      }
+      createdAccounts.push({ company, authUserId: created.data.user.id });
+    }
+  } catch (error) {
+    await Promise.allSettled(createdAccounts.map(({ company, authUserId }) => remoteClient(company).auth.admin.deleteUser(authUserId)));
+    return { ok: false, error: error instanceof Error ? error.message : "No se pudo crear la cuenta en todas las empresas." };
+  }
+
+  const identityId = randomUUID();
+  const { data: localUsers, error } = await admin.from("managed_users").insert(createdAccounts.map(({ company, authUserId }) => ({
+    identity_id: identityId,
+    company_id: company.id,
+    auth_user_id: authUserId,
+    full_name: data.fullName,
+    email,
+    role: data.role,
+    notes: data.notes,
+  }))).select("id");
+  if (error || !localUsers?.length) {
+    await Promise.allSettled(createdAccounts.map(({ company, authUserId }) => remoteClient(company).auth.admin.deleteUser(authUserId)));
+    return { ok: false, error: error?.code === "23505" ? "Ese usuario ya está registrado en una de las empresas seleccionadas." : "No se pudo registrar el usuario en el panel general." };
+  }
+  await audit({ actorId: auth.userId, companyId: companyIds[0], action: "user.created", entityType: "managed_user", entityId: localUsers[0].id, metadata: { role: data.role, username: data.username, companyIds } });
   revalidatePlatform();
-  return { ok: true, id: localUser.id, temporaryPassword: password, message: "Cuenta creada. La contraseña temporal solo se muestra ahora." };
+  return { ok: true, id: localUsers[0].id, temporaryPassword: password, message: companyIds.length > 1 ? "Diseñador creado y asignado a las empresas seleccionadas. La contraseña temporal solo se muestra ahora." : "Cuenta creada. La contraseña temporal solo se muestra ahora." };
+}
+
+async function getManagedUserGroup(id: string) {
+  const admin = createAdminClient();
+  const { data: current, error: currentError } = await admin.from("managed_users").select("*, managed_companies(*)").eq("id", id).single();
+  if (currentError || !current) return { admin, current: null, rows: [], error: "Usuario no encontrado." };
+  const identityId = current.identity_id ?? current.id;
+  const { data: rows, error } = await admin.from("managed_users").select("*, managed_companies(*)").eq("identity_id", identityId);
+  if (error || !rows?.length) return { admin, current, rows: [current], error: "No se pudieron cargar las empresas asignadas." };
+  return { admin, current, rows, error: null };
 }
 
 export async function updateManagedUser(id: string, input: unknown): Promise<PlatformActionResult> {
   const auth = await requirePlatformAdmin();
   if (!auth.ok) return auth;
-  const parsed = userSchema.omit({ companyId: true, temporaryPassword: true }).extend({ isActive: z.boolean() }).safeParse(input);
+  const parsed = userSchema.omit({ temporaryPassword: true }).extend({ isActive: z.boolean() }).safeParse(input);
   if (!parsed.success) return { ok: false, error: parsed.error.issues[0]?.message ?? "Datos no válidos." };
-  const { data: current, error: currentError } = await createAdminClient().from("managed_users").select("*, managed_companies(*)").eq("id", id).single();
-  if (currentError || !current) return { ok: false, error: "Usuario no encontrado." };
-  const company = Array.isArray(current.managed_companies) ? current.managed_companies[0] : current.managed_companies;
+  let companyIds: string[];
+  try { companyIds = selectedCompanyIdsForRole(parsed.data.companyIds, parsed.data.role); } catch (error) { return { ok: false, error: error instanceof Error ? error.message : "Asignaciones no válidas." }; }
+  const group = await getManagedUserGroup(id);
+  if (group.error || !group.current) return { ok: false, error: group.error ?? "Usuario no encontrado." };
+  const current = group.current;
+  const currentRows = group.rows;
+  const { data: companies, error: companiesError } = await group.admin.from("managed_companies").select("*").in("id", companyIds);
+  if (companiesError || !companies || companies.length !== companyIds.length) return { ok: false, error: "Una o más empresas no existen o no están disponibles." };
+  const existingByCompany = new Map(currentRows.map((row) => [row.company_id, row]));
+  const addedCompanyIds = companyIds.filter((companyId) => !existingByCompany.has(companyId));
   const requestedEmail = parsed.data.email?.trim().toLowerCase();
   const nextEmail = requestedEmail || (isInternalUserEmail(current.email) ? usernameToInternalEmail(parsed.data.username) : current.email);
+  const passwordForNewAssignments = addedCompanyIds.length > 0 ? generatedPassword() : undefined;
+  const createdAccounts: Array<{ company: typeof companies[number]; authUserId: string }> = [];
+
   try {
-    const remote = remoteClient(company);
-    if (current.auth_user_id) await remote.auth.admin.updateUserById(current.auth_user_id, { email: nextEmail, user_metadata: { full_name: parsed.data.fullName, username: parsed.data.username } });
-    if (current.auth_user_id) await remote.from("profiles").update({ full_name: parsed.data.fullName, email: nextEmail, role: remoteRole(parsed.data.role), is_active: parsed.data.isActive }).eq("id", current.auth_user_id);
-  } catch (error) { return { ok: false, error: error instanceof Error ? error.message : "No se pudo actualizar la cuenta externa." }; }
-  const { error } = await createAdminClient().from("managed_users").update({ full_name: parsed.data.fullName, email: nextEmail, role: parsed.data.role, notes: parsed.data.notes, is_active: parsed.data.isActive }).eq("id", id);
-  if (error) return { ok: false, error: error.code === "23505" ? "Ese usuario o email ya está registrado para la empresa." : "No se pudo actualizar el usuario." };
-  await audit({ actorId: auth.userId, companyId: current.company_id, action: "user.updated", entityType: "managed_user", entityId: id });
+    for (const companyId of companyIds) {
+      const company = companies.find((item) => item.id === companyId);
+      if (!company) throw new Error("Empresa no encontrada.");
+      const existing = existingByCompany.get(companyId);
+      const remote = remoteClient(company);
+      if (existing?.auth_user_id) {
+        const update = { email: nextEmail, user_metadata: { full_name: parsed.data.fullName, username: parsed.data.username }, ...(passwordForNewAssignments ? { password: passwordForNewAssignments } : {}) };
+        const remoteUser = await remote.auth.admin.updateUserById(existing.auth_user_id, update);
+        if (remoteUser.error) throw new Error(remoteUser.error.message);
+        const { error: profileError } = await remote.from("profiles").update({ full_name: parsed.data.fullName, email: nextEmail, role: remoteRole(parsed.data.role), is_active: parsed.data.isActive }).eq("id", existing.auth_user_id);
+        if (profileError) throw new Error("No se pudo actualizar el perfil de una de las empresas.");
+        continue;
+      }
+
+      const created = await remote.auth.admin.createUser({ email: nextEmail, password: passwordForNewAssignments ?? generatedPassword(), email_confirm: true, user_metadata: { full_name: parsed.data.fullName, username: parsed.data.username } });
+      if (created.error || !created.data.user) throw new Error(created.error?.message ?? "No se pudo crear la cuenta externa.");
+      const { error: profileError } = await remote.from("profiles").upsert({ id: created.data.user.id, full_name: parsed.data.fullName, email: nextEmail, role: remoteRole(parsed.data.role), is_active: parsed.data.isActive }, { onConflict: "id" });
+      if (profileError) {
+        await remote.auth.admin.deleteUser(created.data.user.id);
+        throw new Error("La cuenta se creó, pero no se pudo configurar su perfil.");
+      }
+      createdAccounts.push({ company, authUserId: created.data.user.id });
+    }
+
+    for (const row of currentRows) {
+      if (companyIds.includes(row.company_id)) continue;
+      const company = Array.isArray(row.managed_companies) ? row.managed_companies[0] : row.managed_companies;
+      if (row.auth_user_id && company) await remoteClient(company).from("profiles").update({ is_active: false }).eq("id", row.auth_user_id);
+    }
+  } catch (error) {
+    await Promise.allSettled(createdAccounts.map(({ company, authUserId }) => remoteClient(company).auth.admin.deleteUser(authUserId)));
+    return { ok: false, error: error instanceof Error ? error.message : "No se pudo actualizar la cuenta en todas las empresas." };
+  }
+
+  const identityId = current.identity_id ?? current.id;
+  for (const row of currentRows) {
+    const { error } = await group.admin.from("managed_users").update({ full_name: parsed.data.fullName, email: nextEmail, role: parsed.data.role, notes: parsed.data.notes, is_active: companyIds.includes(row.company_id) ? parsed.data.isActive : false }).eq("id", row.id);
+    if (error) return { ok: false, error: error.code === "23505" ? "Ese usuario o email ya está registrado para una empresa." : "No se pudo actualizar el usuario." };
+  }
+  if (createdAccounts.length > 0) {
+    const { error } = await group.admin.from("managed_users").insert(createdAccounts.map(({ company, authUserId }) => ({ identity_id: identityId, company_id: company.id, auth_user_id: authUserId, full_name: parsed.data.fullName, email: nextEmail, role: parsed.data.role, notes: parsed.data.notes, is_active: parsed.data.isActive })));
+    if (error) return { ok: false, error: error.code === "23505" ? "Ese usuario o email ya está registrado para una empresa." : "No se pudo guardar la nueva asignación." };
+  }
+  await audit({ actorId: auth.userId, companyId: current.company_id, action: "user.updated", entityType: "managed_user", entityId: id, metadata: { companyIds } });
   revalidatePlatform();
-  return { ok: true, id };
+  return { ok: true, id, ...(passwordForNewAssignments ? { temporaryPassword: passwordForNewAssignments, message: "Asignaciones actualizadas. Se generó una nueva contraseña temporal para mantener el mismo acceso en las empresas añadidas." } : {}) };
 }
 
 export async function archiveManagedUser(id: string): Promise<PlatformActionResult> {
   const auth = await requirePlatformAdmin();
   if (!auth.ok) return auth;
-  const { data: current, error: currentError } = await createAdminClient().from("managed_users").select("*, managed_companies(*)").eq("id", id).single();
-  if (currentError || !current) return { ok: false, error: "Usuario no encontrado." };
-  try { if (current.auth_user_id) await remoteClient(Array.isArray(current.managed_companies) ? current.managed_companies[0] : current.managed_companies).from("profiles").update({ is_active: false }).eq("id", current.auth_user_id); } catch (error) { return { ok: false, error: error instanceof Error ? error.message : "No se pudo desactivar la cuenta externa." }; }
-  const { error } = await createAdminClient().from("managed_users").update({ is_active: false }).eq("id", id);
+  const group = await getManagedUserGroup(id);
+  if (group.error || !group.current) return { ok: false, error: group.error ?? "Usuario no encontrado." };
+  try {
+    for (const row of group.rows) {
+      const company = Array.isArray(row.managed_companies) ? row.managed_companies[0] : row.managed_companies;
+      if (row.auth_user_id && company) await remoteClient(company).from("profiles").update({ is_active: false }).eq("id", row.auth_user_id);
+    }
+  } catch (error) { return { ok: false, error: error instanceof Error ? error.message : "No se pudo desactivar una de las cuentas externas." }; }
+  const { error } = await group.admin.from("managed_users").update({ is_active: false }).eq("identity_id", group.current.identity_id ?? group.current.id);
   if (error) return { ok: false, error: "No se pudo desactivar el usuario." };
-  await audit({ actorId: auth.userId, companyId: current.company_id, action: "user.deactivated", entityType: "managed_user", entityId: id });
+  await audit({ actorId: auth.userId, companyId: group.current.company_id, action: "user.deactivated", entityType: "managed_user", entityId: id, metadata: { companyIds: group.rows.map((row) => row.company_id) } });
   revalidatePlatform();
   return { ok: true, id };
 }
@@ -278,18 +377,20 @@ export async function archiveManagedUser(id: string): Promise<PlatformActionResu
 export async function deleteManagedUser(id: string): Promise<PlatformActionResult> {
   const auth = await requirePlatformAdmin();
   if (!auth.ok) return auth;
-  const { data: current, error: currentError } = await createAdminClient().from("managed_users").select("*, managed_companies(*)").eq("id", id).single();
-  if (currentError || !current) return { ok: false, error: "Usuario no encontrado." };
-  const company = Array.isArray(current.managed_companies) ? current.managed_companies[0] : current.managed_companies;
+  const group = await getManagedUserGroup(id);
+  if (group.error || !group.current) return { ok: false, error: group.error ?? "Usuario no encontrado." };
   try {
-    if (current.auth_user_id) {
-      const result = await remoteClient(company).auth.admin.deleteUser(current.auth_user_id);
-      if (result.error) return { ok: false, error: result.error.message };
+    for (const row of group.rows) {
+      const company = Array.isArray(row.managed_companies) ? row.managed_companies[0] : row.managed_companies;
+      if (row.auth_user_id && company) {
+        const result = await remoteClient(company).auth.admin.deleteUser(row.auth_user_id);
+        if (result.error) return { ok: false, error: result.error.message };
+      }
     }
-  } catch (error) { return { ok: false, error: error instanceof Error ? error.message : "No se pudo eliminar la cuenta externa." }; }
-  const { error } = await createAdminClient().from("managed_users").delete().eq("id", id);
+  } catch (error) { return { ok: false, error: error instanceof Error ? error.message : "No se pudo eliminar una de las cuentas externas." }; }
+  const { error } = await group.admin.from("managed_users").delete().eq("identity_id", group.current.identity_id ?? group.current.id);
   if (error) return { ok: false, error: "La cuenta externa fue eliminada, pero no se pudo borrar el registro central." };
-  await audit({ actorId: auth.userId, companyId: current.company_id, action: "user.deleted", entityType: "managed_user", entityId: id });
+  await audit({ actorId: auth.userId, companyId: group.current.company_id, action: "user.deleted", entityType: "managed_user", entityId: id, metadata: { companyIds: group.rows.map((row) => row.company_id) } });
   revalidatePlatform();
   return { ok: true, id };
 }
@@ -297,13 +398,20 @@ export async function deleteManagedUser(id: string): Promise<PlatformActionResul
 export async function resetManagedUserPassword(id: string): Promise<PlatformActionResult> {
   const auth = await requirePlatformAdmin();
   if (!auth.ok) return auth;
-  const { data: current, error } = await createAdminClient().from("managed_users").select("*, managed_companies(*)").eq("id", id).single();
-  if (error || !current?.auth_user_id) return { ok: false, error: "Usuario no encontrado o sin cuenta externa." };
-  const company = Array.isArray(current.managed_companies) ? current.managed_companies[0] : current.managed_companies;
+  const group = await getManagedUserGroup(id);
+  if (group.error || !group.current || !group.rows.some((row) => row.auth_user_id)) return { ok: false, error: group.error ?? "Usuario no encontrado o sin cuenta externa." };
   const password = generatedPassword();
-  try { const result = await remoteClient(company).auth.admin.updateUserById(current.auth_user_id, { password }); if (result.error) return { ok: false, error: result.error.message }; } catch (error) { return { ok: false, error: error instanceof Error ? error.message : "No se pudo restablecer la contraseña." }; }
-  await createAdminClient().from("managed_users").update({ last_password_reset_at: new Date().toISOString() }).eq("id", id);
-  await audit({ actorId: auth.userId, companyId: current.company_id, action: "user.password_reset", entityType: "managed_user", entityId: id });
+  try {
+    for (const row of group.rows) {
+      const company = Array.isArray(row.managed_companies) ? row.managed_companies[0] : row.managed_companies;
+      if (row.auth_user_id && company) {
+        const result = await remoteClient(company).auth.admin.updateUserById(row.auth_user_id, { password });
+        if (result.error) return { ok: false, error: result.error.message };
+      }
+    }
+  } catch (error) { return { ok: false, error: error instanceof Error ? error.message : "No se pudo restablecer la contraseña." }; }
+  await group.admin.from("managed_users").update({ last_password_reset_at: new Date().toISOString() }).eq("identity_id", group.current.identity_id ?? group.current.id);
+  await audit({ actorId: auth.userId, companyId: group.current.company_id, action: "user.password_reset", entityType: "managed_user", entityId: id, metadata: { companyIds: group.rows.map((row) => row.company_id) } });
   revalidatePlatform();
   return { ok: true, id, temporaryPassword: password, message: "Contraseña restablecida. Solo se muestra ahora." };
 }
