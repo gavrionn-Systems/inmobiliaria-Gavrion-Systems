@@ -21,7 +21,7 @@ function normalizeUrl(value: string) {
 }
 
 function adminUrl(site: DesignerSite) {
-  const base = (site.publicUrl || deploymentUrl(site) || site.url).trim().replace(/\/$/, "");
+  const base = (deploymentUrl(site) || site.publicUrl || site.url).trim().replace(/\/$/, "");
   const path = site.adminPath?.trim().replace(/^\/+|\/+$/g, "");
   return base && path ? `${base}/${path}` : "";
 }
