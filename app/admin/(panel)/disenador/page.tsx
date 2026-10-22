@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
-import { getSession } from "@/lib/auth";
+import { getLiveAssignedCompanies, getSession } from "@/lib/auth";
 import { adminPanelSlug, isDesignerRole } from "@/lib/demo-auth";
 import { getSiteSettings } from "@/lib/site-settings";
 
@@ -21,9 +21,13 @@ function normalizeUrl(value: string) {
 }
 
 function adminUrl(site: DesignerSite) {
-  const base = (site.publicUrl || site.deploymentUrl || site.url).trim().replace(/\/$/, "");
+  const base = (site.publicUrl || deploymentUrl(site) || site.url).trim().replace(/\/$/, "");
   const path = site.adminPath?.trim().replace(/^\/+|\/+$/g, "");
   return base && path ? `${base}/${path}` : "";
+}
+
+function deploymentUrl(site: DesignerSite) {
+  return site.deploymentUrl || "";
 }
 
 export default async function DesignerSitesPage() {
@@ -34,7 +38,10 @@ export default async function DesignerSitesPage() {
 
   const settings = await getSiteSettings();
   const currentUrl = normalizeUrl(settings.url);
-  const assigned = session.user.assignedCompanies ?? [];
+  const assigned = await getLiveAssignedCompanies(
+    session.user.id,
+    session.user.assignedCompanies ?? [],
+  );
   const sites: DesignerSite[] = assigned.map((company) => ({
     ...company,
     isCurrent: normalizeUrl(company.url) === currentUrl,
@@ -76,8 +83,8 @@ export default async function DesignerSitesPage() {
                   <p className="truncate" title={site.publicUrl || site.url}>
                     <span className="font-medium text-on-surface">Pública:</span> {site.publicUrl || site.url || "Pendiente"}
                   </p>
-                  <p className="truncate" title={site.deploymentUrl || ""}>
-                    <span className="font-medium text-on-surface">Vercel:</span> {site.deploymentUrl || "Pendiente"}
+                  <p className="truncate" title={deploymentUrl(site)}>
+                    <span className="font-medium text-on-surface">Vercel:</span> {deploymentUrl(site) || "Pendiente"}
                   </p>
                 </div>
               </div>

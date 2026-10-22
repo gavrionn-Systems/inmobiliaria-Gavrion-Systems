@@ -1,7 +1,7 @@
 import { redirect } from "next/navigation";
 import AdminSidebar from "@/components/admin/AdminSidebar";
 import AdminMobileNav from "@/components/admin/AdminMobileNav";
-import { getSession } from "@/lib/auth";
+import { getLiveAssignedCompanies, getSession } from "@/lib/auth";
 import {
   ADMIN_ONLY_NAV_KEYS,
   ROLE_LABELS,
@@ -29,6 +29,9 @@ export default async function AdminPanelLayout({
   }
   const settings = await getSiteSettings();
   const role = session.user.role;
+  const assignedCompanies = isDesignerRole(role)
+    ? await getLiveAssignedCompanies(session.user.id, session.user.assignedCompanies ?? [])
+    : [];
   const adminOnlyNav = new Set<string>([
     ...ADMIN_ONLY_NAV_KEYS,
     "configuracion",
@@ -60,7 +63,7 @@ export default async function AdminPanelLayout({
     ? {
         name: settings.name,
         url: settings.url,
-        assignedCompanies: session.user.assignedCompanies ?? [],
+        assignedCompanies,
       }
     : undefined;
 
