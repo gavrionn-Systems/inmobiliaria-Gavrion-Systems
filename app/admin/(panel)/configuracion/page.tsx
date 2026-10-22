@@ -40,6 +40,7 @@ export default async function AdminConfiguracionPage() {
 
   const [settings, chatbox] = await Promise.all([getSiteSettings(), getChatboxSettings()]);
   const isDesigner = isDesignerRole(session.user.role);
+  const assignedCompanies = session.user.assignedCompanies ?? [];
   const initial: SiteSettingsInput = {
     name: settings.name,
     url: settings.url,
@@ -148,6 +149,36 @@ export default async function AdminConfiguracionPage() {
               Ver sitio
               <span aria-hidden="true" className="material-symbols-outlined text-base">open_in_new</span>
             </a>
+          </div>
+        ) : null}
+        {isDesigner && assignedCompanies.length > 1 ? (
+          <div className="mt-4 rounded-xl border border-outline-variant bg-surface-container-low p-4">
+            <p className="font-label-sm text-label-sm uppercase tracking-[0.12em] text-primary">
+              Empresas asignadas a este diseñador
+            </p>
+            <div className="mt-3 grid gap-2 sm:grid-cols-2">
+              {assignedCompanies.map((company) => (
+                company.url ? (
+                  <a
+                    key={company.id}
+                    href={company.url}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="flex min-w-0 items-center justify-between gap-3 rounded-lg border border-outline-variant bg-surface px-3 py-2 text-sm text-on-surface hover:border-primary hover:text-primary"
+                  >
+                    <span className="truncate">{company.name}</span>
+                    <span aria-hidden="true" className="material-symbols-outlined shrink-0 text-base">open_in_new</span>
+                  </a>
+                ) : (
+                  <span key={company.id} className="truncate rounded-lg border border-outline-variant bg-surface px-3 py-2 text-sm text-on-surface">
+                    {company.name}
+                  </span>
+                )
+              ))}
+            </div>
+            <p className="mt-3 text-sm text-secondary">
+              Cada empresa tiene su propio proyecto Vercel y base Supabase. Abra el sitio correspondiente para editarlo; esta página siempre muestra el sitio en el que inició sesión.
+            </p>
           </div>
         ) : null}
       </header>
