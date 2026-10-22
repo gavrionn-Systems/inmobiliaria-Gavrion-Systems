@@ -50,12 +50,15 @@ export default async function AdminPanelLayout({
   const panelTitle = isTemplateAdminRole(role)
     ? "Configuración de plantilla"
     : isDesignerRole(role)
-      ? "Configuración de empresa"
+      ? settings.name
     : isAdminRole(role)
       ? "Panel Admin"
       : "Panel del equipo";
   const roleLabel = ROLE_LABELS[role] ?? role;
   const panelPath = `/${adminPanelSlug()}`;
+  const siteContext = isDesignerRole(role)
+    ? { name: settings.name, url: settings.url }
+    : undefined;
 
   return (
     <div className="min-h-screen bg-surface flex">
@@ -70,6 +73,7 @@ export default async function AdminPanelLayout({
         roleLabel={roleLabel}
         loginPath={adminLoginPath()}
         panelPath={panelPath}
+        siteContext={siteContext}
       />
 
       <div className="flex-1 flex flex-col min-w-0">
@@ -85,6 +89,7 @@ export default async function AdminPanelLayout({
           roleLabel={roleLabel}
           loginPath={adminLoginPath()}
           panelPath={panelPath}
+          siteContext={siteContext}
         />
 
         <main className="flex-1 p-4 md:p-6 lg:p-10">{children}</main>

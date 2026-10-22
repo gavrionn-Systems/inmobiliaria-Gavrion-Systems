@@ -39,6 +39,7 @@ export default async function AdminConfiguracionPage() {
   }
 
   const [settings, chatbox] = await Promise.all([getSiteSettings(), getChatboxSettings()]);
+  const isDesigner = isDesignerRole(session.user.role);
   const initial: SiteSettingsInput = {
     name: settings.name,
     url: settings.url,
@@ -112,18 +113,48 @@ export default async function AdminConfiguracionPage() {
   return (
     <>
       <header className="mb-8">
+        {isDesigner ? (
+          <p className="mb-2 font-label-sm text-label-sm uppercase tracking-[0.16em] text-primary">
+            Modo diseñador · Sitio actual
+          </p>
+        ) : null}
         <h1 className="font-headline-lg text-headline-lg-mobile md:text-headline-lg text-on-surface mb-1">
-          Configuración
+          {isDesigner ? `Diseño de ${settings.name}` : "Configuración"}
         </h1>
         <p className="font-body-md text-body-md text-secondary">
-          Identidad pública y experiencia administrativa de la inmobiliaria:
-          logo, contenido, panel interno y configuración — todo sin tocar código.
+          {isDesigner
+            ? "Edita la identidad, el contenido y la experiencia visual de este sitio."
+            : "Identidad pública y experiencia administrativa de la inmobiliaria: logo, contenido, panel interno y configuración — todo sin tocar código."}
         </p>
+        {isDesigner ? (
+          <div className="mt-5 flex flex-col gap-1 rounded-xl border border-primary/20 bg-primary-container/30 px-4 py-3 sm:flex-row sm:items-center sm:justify-between">
+            <div className="min-w-0">
+              <p className="font-label-sm text-label-sm uppercase tracking-[0.12em] text-primary">
+                Estás editando
+              </p>
+              <p className="truncate font-label-md text-label-md font-bold text-on-surface">
+                {settings.name}
+              </p>
+              <p className="truncate text-sm text-secondary" title={settings.url}>
+                {settings.url}
+              </p>
+            </div>
+            <a
+              href={settings.url}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="inline-flex shrink-0 items-center gap-2 self-start rounded-lg border border-primary/30 px-3 py-2 text-sm font-semibold text-primary hover:bg-primary/10 sm:self-center"
+            >
+              Ver sitio
+              <span aria-hidden="true" className="material-symbols-outlined text-base">open_in_new</span>
+            </a>
+          </div>
+        ) : null}
       </header>
       <SiteSettingsForm
         initial={initial}
         isCompanyAdmin={isAdminRole(session.user.role)}
-        isDesigner={isDesignerRole(session.user.role)}
+        isDesigner={isDesigner}
       />
       <ChatboxSettingsForm
         initial={chatbox}
