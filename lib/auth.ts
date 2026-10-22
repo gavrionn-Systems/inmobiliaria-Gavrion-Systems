@@ -17,6 +17,7 @@ import {
   sessionSecret,
   signSessionToken,
   verifySessionToken,
+  type AssignedCompany,
   type SessionPayload,
 } from "./session-token";
 
@@ -25,6 +26,7 @@ export interface SessionUser {
   name: string;
   email: string;
   role: DemoRole;
+  assignedCompanies?: AssignedCompany[];
 }
 
 export interface Session {
@@ -32,6 +34,20 @@ export interface Session {
 }
 
 const MAX_AGE_SECONDS = 60 * 60 * 8; // 8 horas
+
+function parseAssignedCompanies(value: unknown): AssignedCompany[] {
+  if (!Array.isArray(value)) return [];
+  return value
+    .filter((item): item is Record<string, unknown> => Boolean(item && typeof item === "object"))
+    .map((item) => ({
+      id: typeof item.id === "string" ? item.id : "",
+      name: typeof item.name === "string" ? item.name.trim() : "",
+      url: typeof item.url === "string" ? item.url.trim() : "",
+      adminPath: typeof item.adminPath === "string" ? item.adminPath.trim() : "",
+    }))
+    .filter((item) => item.id && item.name)
+    .slice(0, 50);
+}
 
 /** Comparación en tiempo constante: hashea ambos lados para igualar longitud. */
 function safeEqualPassword(a: string, b: string): boolean {
@@ -149,6 +165,7 @@ async function verifySupabaseCredentials(
     name: profile.full_name,
     email: profile.email,
     role: profile.role,
+    assignedCompanies: parseAssignedCompanies(data.user.user_metadata?.assigned_companies),
   };
 }
 
@@ -173,9 +190,15 @@ export async function getSession(): Promise<Session | null> {
   const payload = await verifySessionToken(token, secret);
   if (!payload) return null;
   if (!isDemoRole(payload.role)) return null;
-    return {
-      user: { id: payload.id, name: payload.name, email: payload.sub, role: payload.role },
-    };
+  return {
+    user: {
+      id: payload.id,
+      name: payload.name,
+      email: payload.sub,
+      role: payload.role,
+      assignedCompanies: payload.assignedCompanies,
+    },
+  };
 }
 
 export async function authorize(
@@ -195,6 +218,7 @@ export async function createSession(user: SessionUser) {
     name: user.name,
     role: user.role,
     id: user.id,
+    assignedCompanies: user.assignedCompanies,
     exp: Math.floor(Date.now() / 1000) + MAX_AGE_SECONDS,
   };
   const token = await signSessionToken(payload, secret);

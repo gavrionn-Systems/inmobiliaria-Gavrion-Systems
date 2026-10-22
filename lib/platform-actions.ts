@@ -164,6 +164,23 @@ function remoteRole(role: "company_admin" | "designer" | "agente") {
 
 function generatedPassword() { return `M2-${randomBytes(12).toString("base64url")}`; }
 
+function assignedCompanyMetadata(companies: Array<{ id: string; name: string; public_url?: string | null; deployment_url?: string | null }>) {
+  return companies.map((company) => ({
+    id: company.id,
+    name: company.name,
+    url: company.public_url?.trim() || company.deployment_url?.trim() || "",
+    adminPath: company.slug?.trim() || "",
+  }));
+}
+
+function remoteUserMetadata(fullName: string, username: string, companies: Array<{ id: string; name: string; public_url?: string | null; deployment_url?: string | null }>) {
+  return {
+    full_name: fullName,
+    username,
+    assigned_companies: assignedCompanyMetadata(companies),
+  };
+}
+
 export async function createManagedCompany(input: unknown): Promise<PlatformActionResult> {
   const auth = await requirePlatformAdmin();
   if (!auth.ok) return auth;
@@ -238,13 +255,16 @@ export async function createManagedUser(input: unknown): Promise<PlatformActionR
   if (companiesError || !companies || companies.length !== companyIds.length) return { ok: false, error: "Una o más empresas no existen o no están disponibles." };
   const email = data.email?.trim().toLowerCase() || usernameToInternalEmail(data.username);
   const password = data.temporaryPassword ?? generatedPassword();
+  const assignedCompanies = companyIds
+    .map((companyId) => companies.find((company) => company.id === companyId))
+    .filter((company): company is typeof companies[number] => Boolean(company));
   const createdAccounts: Array<{ company: typeof companies[number]; authUserId: string }> = [];
   try {
     for (const companyId of companyIds) {
       const company = companies.find((item) => item.id === companyId);
       if (!company) throw new Error("Empresa no encontrada.");
       const remote = remoteClient(company);
-      const created = await remote.auth.admin.createUser({ email, password, email_confirm: true, user_metadata: { full_name: data.fullName, username: data.username } });
+      const created = await remote.auth.admin.createUser({ email, password, email_confirm: true, user_metadata: remoteUserMetadata(data.fullName, data.username, assignedCompanies) });
       if (created.error || !created.data.user) throw new Error(created.error?.message ?? "No se pudo crear la cuenta externa.");
       const { error: profileError } = await remote.from("profiles").upsert({ id: created.data.user.id, full_name: data.fullName, email, role: remoteRole(data.role), is_active: true }, { onConflict: "id" });
       if (profileError) {
@@ -305,6 +325,9 @@ export async function updateManagedUser(id: string, input: unknown): Promise<Pla
   const requestedEmail = parsed.data.email?.trim().toLowerCase();
   const nextEmail = requestedEmail || (isInternalUserEmail(current.email) ? usernameToInternalEmail(parsed.data.username) : current.email);
   const passwordForNewAssignments = addedCompanyIds.length > 0 ? generatedPassword() : undefined;
+  const assignedCompanies = companyIds
+    .map((companyId) => companies.find((company) => company.id === companyId))
+    .filter((company): company is typeof companies[number] => Boolean(company));
   const createdAccounts: Array<{ company: typeof companies[number]; authUserId: string }> = [];
 
   try {
@@ -314,7 +337,7 @@ export async function updateManagedUser(id: string, input: unknown): Promise<Pla
       const existing = existingByCompany.get(companyId);
       const remote = remoteClient(company);
       if (existing?.auth_user_id) {
-        const update = { email: nextEmail, user_metadata: { full_name: parsed.data.fullName, username: parsed.data.username }, ...(passwordForNewAssignments ? { password: passwordForNewAssignments } : {}) };
+        const update = { email: nextEmail, user_metadata: remoteUserMetadata(parsed.data.fullName, parsed.data.username, assignedCompanies), ...(passwordForNewAssignments ? { password: passwordForNewAssignments } : {}) };
         const remoteUser = await remote.auth.admin.updateUserById(existing.auth_user_id, update);
         if (remoteUser.error) throw new Error(remoteUser.error.message);
         const { error: profileError } = await remote.from("profiles").update({ full_name: parsed.data.fullName, email: nextEmail, role: remoteRole(parsed.data.role), is_active: parsed.data.isActive }).eq("id", existing.auth_user_id);
@@ -322,7 +345,7 @@ export async function updateManagedUser(id: string, input: unknown): Promise<Pla
         continue;
       }
 
-      const created = await remote.auth.admin.createUser({ email: nextEmail, password: passwordForNewAssignments ?? generatedPassword(), email_confirm: true, user_metadata: { full_name: parsed.data.fullName, username: parsed.data.username } });
+      const created = await remote.auth.admin.createUser({ email: nextEmail, password: passwordForNewAssignments ?? generatedPassword(), email_confirm: true, user_metadata: remoteUserMetadata(parsed.data.fullName, parsed.data.username, assignedCompanies) });
       if (created.error || !created.data.user) throw new Error(created.error?.message ?? "No se pudo crear la cuenta externa.");
       const { error: profileError } = await remote.from("profiles").upsert({ id: created.data.user.id, full_name: parsed.data.fullName, email: nextEmail, role: remoteRole(parsed.data.role), is_active: parsed.data.isActive }, { onConflict: "id" });
       if (profileError) {
@@ -335,7 +358,15 @@ export async function updateManagedUser(id: string, input: unknown): Promise<Pla
     for (const row of currentRows) {
       if (companyIds.includes(row.company_id)) continue;
       const company = Array.isArray(row.managed_companies) ? row.managed_companies[0] : row.managed_companies;
-      if (row.auth_user_id && company) await remoteClient(company).from("profiles").update({ is_active: false }).eq("id", row.auth_user_id);
+      if (row.auth_user_id && company) {
+        const remote = remoteClient(company);
+        const remoteUser = await remote.auth.admin.updateUserById(row.auth_user_id, {
+          user_metadata: remoteUserMetadata(parsed.data.fullName, parsed.data.username, assignedCompanies),
+        });
+        if (remoteUser.error) throw new Error(remoteUser.error.message);
+        const { error: profileError } = await remote.from("profiles").update({ is_active: false }).eq("id", row.auth_user_id);
+        if (profileError) throw new Error("No se pudo desactivar el acceso de una empresa anterior.");
+      }
     }
   } catch (error) {
     await Promise.allSettled(createdAccounts.map(({ company, authUserId }) => remoteClient(company).auth.admin.deleteUser(authUserId)));

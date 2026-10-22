@@ -7,8 +7,18 @@ export type SessionPayload = {
   name: string;
   role: string;
   id?: string;
+  assignedCompanies?: AssignedCompany[];
   /** Expiración en segundos Unix */
   exp: number;
+};
+
+/** Sitios que un diseñador puede editar. No contiene secretos ni claves. */
+export type AssignedCompany = {
+  id: string;
+  name: string;
+  url: string;
+  /** Coincide con ADMIN_PANEL_PATH de la instalación de la empresa. */
+  adminPath?: string;
 };
 
 /** Secreto de firma compartido. En producción falta AUTH_SECRET => fail closed

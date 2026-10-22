@@ -3,9 +3,14 @@ import "server-only";
 import { createClient } from "@supabase/supabase-js";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { decryptPlatformSecret } from "@/lib/platform-security";
+import { isInternalUserEmail, usernameFromStoredEmail } from "@/lib/user-identifiers";
 
 type ManagedCompany = {
   id: string;
+  name: string;
+  slug: string;
+  public_url: string;
+  deployment_url: string;
   supabase_url: string;
   supabase_service_role_key_encrypted: string;
 };
@@ -100,6 +105,60 @@ async function syncCompanyUsers(
   }));
 }
 
+/**
+ * Propaga al usuario remoto la lista de sitios que tiene asignados.
+ * Se hace desde el panel general para que también se actualicen diseñadores
+ * creados antes de que existiera el selector multiempresa.
+ */
+async function syncDesignerAssignments(
+  companies: ManagedCompany[],
+  users: ManagedUser[],
+) {
+  const companyById = new Map(companies.map((company) => [company.id, company]));
+  const groups = new Map<string, ManagedUser[]>();
+  for (const user of users) {
+    const identityId = user.identity_id ?? user.id;
+    const group = groups.get(identityId) ?? [];
+    group.push(user);
+    groups.set(identityId, group);
+  }
+
+  await Promise.all([...groups.values()].map(async (rows) => {
+    if (rows[0]?.role !== "designer") return;
+    const activeRows = rows.filter((row) => row.is_active);
+    const assignedCompanies = activeRows
+      .map((row) => companyById.get(row.company_id))
+      .filter((company): company is ManagedCompany => Boolean(company))
+      .map((company) => ({
+        id: company.id,
+        name: company.name,
+        url: company.public_url?.trim() || company.deployment_url?.trim() || "",
+        adminPath: company.slug?.trim() || "",
+      }));
+
+    await Promise.all(activeRows.map(async (row) => {
+      const company = companyById.get(row.company_id);
+      if (!company?.supabase_url || !company.supabase_service_role_key_encrypted || !row.auth_user_id) return;
+      try {
+        const serviceKey = decryptPlatformSecret(company.supabase_service_role_key_encrypted);
+        if (!serviceKey) return;
+        const remote = createClient(company.supabase_url, serviceKey, {
+          auth: { autoRefreshToken: false, persistSession: false },
+        });
+        await remote.auth.admin.updateUserById(row.auth_user_id, {
+          user_metadata: {
+            full_name: row.full_name,
+            username: isInternalUserEmail(row.email) ? usernameFromStoredEmail(row.email) : row.email.split("@")[0],
+            assigned_companies: assignedCompanies,
+          },
+        });
+      } catch {
+        // Una instalación no disponible no debe ocultar las demás.
+      }
+    }));
+  }));
+}
+
 export async function getPlatformOverview() {
   const supabase = createAdminClient();
   const [companies, users, runs, audit, releases] = await Promise.all([
@@ -142,6 +201,11 @@ export async function getPlatformOverview() {
       company_names: [companyNames.get(row.company_id) ?? "Empresa eliminada"],
     });
   }
+
+  await syncDesignerAssignments(
+    managedCompanies,
+    (refreshedUsers.data ?? []) as ManagedUser[],
+  );
 
   return {
     companies: companies.data ?? [],

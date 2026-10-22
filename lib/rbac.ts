@@ -76,6 +76,15 @@ export function isTemplateOnlyPath(pathname: string): boolean {
   );
 }
 
+/** Páginas accesibles para el diseñador; el resto del panel es operativo. */
+export function isDesignerPath(pathname: string): boolean {
+  return (
+    isTemplateOnlyPath(pathname) ||
+    pathname === "/admin/disenador" ||
+    pathname.startsWith("/admin/disenador/")
+  );
+}
+
 export function isPlatformOnlyPath(pathname: string): boolean {
   return pathname === "/admin/plataforma" || pathname.startsWith("/admin/plataforma/");
 }

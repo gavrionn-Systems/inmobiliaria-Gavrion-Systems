@@ -41,6 +41,13 @@ export const platformNav = [
   { key: "configuracion", label: "Configuración", href: "/admin/configuracion", icon: "settings" },
 ] as const;
 
+/** Navegación exclusiva del diseñador: primero escoge el sitio y luego edita
+ * la configuración de la instalación en la que inició sesión. */
+export const designerNav = [
+  { key: "designer-sites", label: "Mis sitios", href: "/admin/disenador", icon: "web" },
+  { key: "configuracion", label: "Configuración", href: "/admin/configuracion", icon: "settings" },
+] as const;
+
 export const crmNav = [
   { key: "inbox", label: "Inbox", href: "/admin/crm/inbox", icon: "inbox" },
   { key: "calendario", label: "Calendario", href: "/admin/crm/calendario", icon: "calendar_month" },
