@@ -62,6 +62,7 @@ export {
   ADMIN_ONLY_PATH_PREFIXES,
   isAdminOnlyPath,
   isAdminRole,
+  isDesignerPath,
   isDesignerRole,
   isDemoRole,
   isPlatformRole,
