@@ -86,9 +86,9 @@ const roleLabels = {
 
 function resultMessage(result: { ok: boolean; error?: string }) {
   if (!result.ok) return result.error ?? "No se pudo completar la operación.";
-  const typed = result as { ok: true; message?: string; temporaryPassword?: string };
+  const typed = result as { ok: true; message?: string; temporaryPassword?: string; loginUrl?: string };
   return typed.temporaryPassword
-    ? `${typed.message ?? "Cuenta creada."} Contraseña temporal: ${typed.temporaryPassword}`
+    ? `${typed.message ?? "Cuenta creada."} Contraseña temporal: ${typed.temporaryPassword}${typed.loginUrl ? ` Acceso: ${typed.loginUrl}` : ""}`
     : typed.message ?? "Cambios guardados correctamente.";
 }
 
