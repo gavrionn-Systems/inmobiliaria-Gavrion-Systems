@@ -18,6 +18,7 @@ export default function AdminMobileNav({
   roleLabel,
   loginPath,
   panelPath,
+  siteContext,
 }: {
   items: readonly NavItem[];
   title: string;
@@ -29,6 +30,7 @@ export default function AdminMobileNav({
   roleLabel?: string;
   loginPath: string;
   panelPath: string;
+  siteContext?: { name: string; url: string };
 }) {
   const pathname = usePathname();
   const router = useRouter();
@@ -174,6 +176,20 @@ export default function AdminMobileNav({
             </div>
           </div>
         )}
+
+        {siteContext ? (
+          <div className="mx-4 mt-3 rounded-xl border border-primary-fixed/30 bg-primary-fixed/10 px-3 py-3">
+            <p className="font-label-sm text-label-sm uppercase tracking-[0.12em] text-primary-fixed">
+              Sitio en edición
+            </p>
+            <p className="mt-1 truncate font-label-md text-label-md font-bold text-surface">
+              {siteContext.name}
+            </p>
+            <p className="mt-1 truncate text-xs text-surface-variant" title={siteContext.url}>
+              {siteContext.url}
+            </p>
+          </div>
+        ) : null}
 
         <nav className="min-h-0 flex flex-1 flex-col overflow-y-auto overscroll-contain py-4" aria-label="Admin móvil">
           {menuLabel ? (
