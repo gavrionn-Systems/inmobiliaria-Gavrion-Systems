@@ -9,6 +9,8 @@ export const dynamic = "force-dynamic";
 type DesignerSite = {
   id: string;
   name: string;
+  publicUrl?: string;
+  deploymentUrl?: string;
   url: string;
   adminPath?: string;
   isCurrent: boolean;
@@ -19,7 +21,7 @@ function normalizeUrl(value: string) {
 }
 
 function adminUrl(site: DesignerSite) {
-  const base = site.url.trim().replace(/\/$/, "");
+  const base = (site.publicUrl || site.deploymentUrl || site.url).trim().replace(/\/$/, "");
   const path = site.adminPath?.trim().replace(/^\/+|\/+$/g, "");
   return base && path ? `${base}/${path}` : "";
 }
@@ -42,6 +44,8 @@ export default async function DesignerSitesPage() {
     sites.unshift({
       id: "current-site",
       name: settings.name,
+      publicUrl: settings.url,
+      deploymentUrl: process.env.VERCEL_URL ? `https://${process.env.VERCEL_URL}` : "",
       url: settings.url,
       isCurrent: true,
     });
@@ -68,7 +72,14 @@ export default async function DesignerSitesPage() {
             <div className="flex items-start justify-between gap-3">
               <div className="min-w-0">
                 <p className="font-headline-sm text-on-surface">{site.name}</p>
-                <p className="mt-1 truncate text-sm text-secondary" title={site.url}>{site.url || "URL pendiente de configurar"}</p>
+                <div className="mt-2 space-y-1 text-sm text-secondary">
+                  <p className="truncate" title={site.publicUrl || site.url}>
+                    <span className="font-medium text-on-surface">Pública:</span> {site.publicUrl || site.url || "Pendiente"}
+                  </p>
+                  <p className="truncate" title={site.deploymentUrl || ""}>
+                    <span className="font-medium text-on-surface">Vercel:</span> {site.deploymentUrl || "Pendiente"}
+                  </p>
+                </div>
               </div>
               {site.isCurrent ? (
                 <span className="shrink-0 rounded-full bg-primary px-3 py-1 text-xs font-semibold text-on-primary">Sitio actual</span>
