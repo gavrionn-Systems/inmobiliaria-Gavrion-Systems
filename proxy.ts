@@ -6,6 +6,7 @@ import {
   adminPanelSlug,
   isAdminOnlyPath,
   isAdminRole,
+  isDesignerPath,
   isDesignerRole,
   isPlatformOnlyPath,
   isTemplateAdminRole,
@@ -47,8 +48,8 @@ export async function proxy(request: NextRequest) {
     }
     const inner = pathname.slice(secretPrefix.length) || "/";
     const targetPath = `${ADMIN_ROUTE_PREFIX}${inner === "/" ? "" : inner}`;
-    if (session && ((isTemplateAdminRole(session.role) && !isTemplateOnlyPath(targetPath) && !isPlatformOnlyPath(targetPath)) || (isDesignerRole(session.role) && !isTemplateOnlyPath(targetPath)))) {
-      return NextResponse.redirect(new URL(`${ADMIN_ROUTE_PREFIX}/configuracion`, request.url));
+    if (session && ((isTemplateAdminRole(session.role) && !isTemplateOnlyPath(targetPath) && !isPlatformOnlyPath(targetPath)) || (isDesignerRole(session.role) && !isDesignerPath(targetPath)))) {
+      return NextResponse.redirect(new URL(isDesignerRole(session.role) ? `${secretPrefix}/disenador` : `${ADMIN_ROUTE_PREFIX}/configuracion`, request.url));
     }
     const url = new URL(`${ADMIN_ROUTE_PREFIX}${inner}`, request.url);
     url.search = request.nextUrl.search;
@@ -64,8 +65,8 @@ export async function proxy(request: NextRequest) {
     return NextResponse.redirect(new URL(ADMIN_ROUTE_PREFIX, request.url));
   }
 
-  if ((isTemplateAdminRole(session.role) && !isTemplateOnlyPath(pathname) && !isPlatformOnlyPath(pathname)) || (isDesignerRole(session.role) && !isTemplateOnlyPath(pathname))) {
-    return NextResponse.redirect(new URL(`${ADMIN_ROUTE_PREFIX}/configuracion`, request.url));
+  if ((isTemplateAdminRole(session.role) && !isTemplateOnlyPath(pathname) && !isPlatformOnlyPath(pathname)) || (isDesignerRole(session.role) && !isDesignerPath(pathname))) {
+    return NextResponse.redirect(new URL(isDesignerRole(session.role) ? "/admin/disenador" : `${ADMIN_ROUTE_PREFIX}/configuracion`, request.url));
   }
 
   if (
