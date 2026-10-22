@@ -15,8 +15,14 @@ type NavItem = {
 type SiteContext = {
   name: string;
   url: string;
-  assignedCompanies: Array<{ id: string; name: string; url: string }>;
+  assignedCompanies: Array<{ id: string; name: string; url: string; publicUrl?: string; deploymentUrl?: string; adminPath?: string }>;
 };
+
+function companyPanelUrl(company: SiteContext["assignedCompanies"][number]) {
+  const base = (company.deploymentUrl || company.url || company.publicUrl || "").trim().replace(/\/$/, "");
+  const path = company.adminPath?.trim().replace(/^\/+|\/+$/g, "");
+  return base && path ? `${base}/${path}` : "";
+}
 
 function isActive(pathname: string, item: NavItem) {
   const secretRouteSuffix = item.href.replace(/^\/admin/, "") || "/";
@@ -122,10 +128,10 @@ export default function AdminSidebar({
               </p>
               <div className="mt-2 flex flex-col gap-1">
                 {siteContext.assignedCompanies.map((company) => (
-                  company.url ? (
+                  companyPanelUrl(company) ? (
                     <a
                       key={company.id}
-                      href={company.url}
+                      href={companyPanelUrl(company)}
                       target="_blank"
                       rel="noopener noreferrer"
                       className="truncate rounded px-1 py-1 text-xs text-surface-variant hover:bg-white/10 hover:text-surface"

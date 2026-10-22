@@ -9,8 +9,14 @@ type NavItem = { key: string; label: string; href: string; icon?: string };
 type SiteContext = {
   name: string;
   url: string;
-  assignedCompanies: Array<{ id: string; name: string; url: string }>;
+  assignedCompanies: Array<{ id: string; name: string; url: string; publicUrl?: string; deploymentUrl?: string; adminPath?: string }>;
 };
+
+function companyPanelUrl(company: SiteContext["assignedCompanies"][number]) {
+  const base = (company.deploymentUrl || company.url || company.publicUrl || "").trim().replace(/\/$/, "");
+  const path = company.adminPath?.trim().replace(/^\/+|\/+$/g, "");
+  return base && path ? `${base}/${path}` : "";
+}
 
 export default function AdminMobileNav({
   items,
@@ -200,10 +206,10 @@ export default function AdminMobileNav({
                 </p>
                 <div className="mt-2 flex flex-col gap-1">
                   {siteContext.assignedCompanies.map((company) => (
-                    company.url ? (
+                    companyPanelUrl(company) ? (
                       <a
                         key={company.id}
-                        href={company.url}
+                        href={companyPanelUrl(company)}
                         target="_blank"
                         rel="noopener noreferrer"
                         onClick={() => setOpen(false)}
