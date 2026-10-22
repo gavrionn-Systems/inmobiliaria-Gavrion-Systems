@@ -164,18 +164,25 @@ function remoteRole(role: "company_admin" | "designer" | "agente") {
 
 function generatedPassword() { return `M2-${randomBytes(12).toString("base64url")}`; }
 
-function assignedCompanyMetadata(companies: Array<{ id: string; name: string; slug?: string | null; public_url?: string | null; deployment_url?: string | null }>) {
+function vercelUrl(company: { deployment_url?: string | null; vercel_project_name?: string | null }) {
+  const configured = company.deployment_url?.trim();
+  if (configured) return configured;
+  const project = company.vercel_project_name?.trim().toLowerCase();
+  return project ? `https://${project}.vercel.app` : "";
+}
+
+function assignedCompanyMetadata(companies: Array<{ id: string; name: string; slug?: string | null; public_url?: string | null; deployment_url?: string | null; vercel_project_name?: string | null }>) {
   return companies.map((company) => ({
     id: company.id,
     name: company.name,
     publicUrl: company.public_url?.trim() || "",
-    deploymentUrl: company.deployment_url?.trim() || "",
-    url: company.public_url?.trim() || company.deployment_url?.trim() || "",
+    deploymentUrl: vercelUrl(company),
+    url: company.public_url?.trim() || vercelUrl(company),
     adminPath: company.slug?.trim() || "",
   }));
 }
 
-function remoteUserMetadata(fullName: string, username: string, companies: Array<{ id: string; name: string; slug?: string | null; public_url?: string | null; deployment_url?: string | null }>) {
+function remoteUserMetadata(fullName: string, username: string, companies: Array<{ id: string; name: string; slug?: string | null; public_url?: string | null; deployment_url?: string | null; vercel_project_name?: string | null }>) {
   return {
     full_name: fullName,
     username,

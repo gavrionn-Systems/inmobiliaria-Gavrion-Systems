@@ -51,6 +51,23 @@ function parseAssignedCompanies(value: unknown): AssignedCompany[] {
     .slice(0, 50);
 }
 
+/** Lee la metadata vigente de Auth para no mantener el selector de sitios
+ * desactualizado durante las ocho horas que puede durar la cookie del panel. */
+export async function getLiveAssignedCompanies(
+  userId: string | undefined,
+  fallback: AssignedCompany[] = [],
+): Promise<AssignedCompany[]> {
+  if (!userId) return fallback;
+  try {
+    const admin = createAdminClient();
+    const { data, error } = await admin.auth.admin.getUserById(userId);
+    if (error || !data.user) return fallback;
+    return parseAssignedCompanies(data.user.user_metadata?.assigned_companies);
+  } catch {
+    return fallback;
+  }
+}
+
 /** Comparación en tiempo constante: hashea ambos lados para igualar longitud. */
 function safeEqualPassword(a: string, b: string): boolean {
   const ha = createHash("sha256").update(a).digest();

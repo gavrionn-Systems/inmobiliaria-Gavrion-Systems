@@ -11,6 +11,7 @@ type ManagedCompany = {
   slug: string;
   public_url: string;
   deployment_url: string;
+  vercel_project_name: string;
   supabase_url: string;
   supabase_service_role_key_encrypted: string;
 };
@@ -133,8 +134,8 @@ async function syncDesignerAssignments(
         id: company.id,
         name: company.name,
         publicUrl: company.public_url?.trim() || "",
-        deploymentUrl: company.deployment_url?.trim() || "",
-        url: company.public_url?.trim() || company.deployment_url?.trim() || "",
+        deploymentUrl: company.deployment_url?.trim() || (company.vercel_project_name?.trim() ? `https://${company.vercel_project_name.trim().toLowerCase()}.vercel.app` : ""),
+        url: company.public_url?.trim() || company.deployment_url?.trim() || (company.vercel_project_name?.trim() ? `https://${company.vercel_project_name.trim().toLowerCase()}.vercel.app` : ""),
         adminPath: company.slug?.trim() || "",
       }));
 
