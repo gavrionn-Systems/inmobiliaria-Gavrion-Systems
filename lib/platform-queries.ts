@@ -20,6 +20,7 @@ type ManagedUser = {
   role: "company_admin" | "designer" | "agente";
   is_active: boolean;
   notes: string;
+  created_at: string;
 };
 
 export type ManagedUserView = ManagedUser & {
