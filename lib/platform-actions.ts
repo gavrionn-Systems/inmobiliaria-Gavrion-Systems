@@ -11,7 +11,7 @@ import { decryptPlatformSecret, encryptPlatformSecret } from "@/lib/platform-sec
 import { isInternalUserEmail, normalizeUsername, usernameToInternalEmail } from "@/lib/user-identifiers";
 
 export type PlatformActionResult =
-  | { ok: true; id?: string; temporaryPassword?: string; message?: string }
+  | { ok: true; id?: string; temporaryPassword?: string; loginUrl?: string; message?: string }
   | { ok: false; error: string };
 
 const companySchema = z.object({
@@ -158,6 +158,30 @@ function remoteClient(company: { supabase_url: string; supabase_service_role_key
   return createClient(company.supabase_url, serviceKey, { auth: { autoRefreshToken: false, persistSession: false } });
 }
 
+function remoteLoginUrl(company: { public_url?: string | null; deployment_url?: string | null; vercel_project_name?: string | null; slug?: string | null }) {
+  const base = (company.deployment_url?.trim() || vercelUrl(company) || company.public_url?.trim() || "").replace(/\/$/, "");
+  const path = company.slug?.trim().replace(/^\/+|\/+$/g, "");
+  return base && path ? `${base}/${path}/login` : "";
+}
+
+async function verifyRemoteLogin(
+  company: { name?: string | null; supabase_url: string; supabase_anon_key?: string | null },
+  email: string,
+  password: string,
+) {
+  const anonKey = company.supabase_anon_key?.trim();
+  if (!company.supabase_url || !anonKey) {
+    throw new Error(`La empresa ${company.name ?? "seleccionada"} no tiene configurados su URL y anon key de Supabase.`);
+  }
+  const client = createClient(company.supabase_url, anonKey, {
+    auth: { autoRefreshToken: false, persistSession: false },
+  });
+  const { data, error } = await client.auth.signInWithPassword({ email, password });
+  if (error || !data.user) {
+    throw new Error(`La cuenta se creó, pero la autenticación de ${company.name ?? "la empresa"} no validó la contraseña. Revise que Vercel use la Supabase de esa empresa.`);
+  }
+}
+
 function remoteRole(role: "company_admin" | "designer" | "agente") {
   return role === "company_admin" ? "admin" : role === "designer" ? "designer" : "agente";
 }
@@ -281,6 +305,7 @@ export async function createManagedUser(input: unknown): Promise<PlatformActionR
         throw new Error("La cuenta se creó, pero no se pudo configurar su perfil.");
       }
       createdAccounts.push({ company, authUserId: created.data.user.id });
+      await verifyRemoteLogin(company, email, password);
     }
   } catch (error) {
     await Promise.allSettled(createdAccounts.map(({ company, authUserId }) => remoteClient(company).auth.admin.deleteUser(authUserId)));
@@ -303,7 +328,13 @@ export async function createManagedUser(input: unknown): Promise<PlatformActionR
   }
   await audit({ actorId: auth.userId, companyId: companyIds[0], action: "user.created", entityType: "managed_user", entityId: localUsers[0].id, metadata: { role: data.role, username: data.username, companyIds } });
   revalidatePlatform();
-  return { ok: true, id: localUsers[0].id, temporaryPassword: password, message: companyIds.length > 1 ? "Diseñador creado y asignado a las empresas seleccionadas. La contraseña temporal solo se muestra ahora." : "Cuenta creada. La contraseña temporal solo se muestra ahora." };
+  return {
+    ok: true,
+    id: localUsers[0].id,
+    temporaryPassword: password,
+    loginUrl: remoteLoginUrl(assignedCompanies[0]),
+    message: companyIds.length > 1 ? "Diseñador creado y asignado a las empresas seleccionadas. La contraseña temporal solo se muestra ahora." : "Cuenta creada. La contraseña temporal solo se muestra ahora.",
+  };
 }
 
 async function getManagedUserGroup(id: string) {
@@ -362,6 +393,7 @@ export async function updateManagedUser(id: string, input: unknown): Promise<Pla
         throw new Error("La cuenta se creó, pero no se pudo configurar su perfil.");
       }
       createdAccounts.push({ company, authUserId: created.data.user.id });
+      if (passwordForNewAssignments) await verifyRemoteLogin(company, nextEmail, passwordForNewAssignments);
     }
 
     for (const row of currentRows) {
@@ -393,7 +425,17 @@ export async function updateManagedUser(id: string, input: unknown): Promise<Pla
   }
   await audit({ actorId: auth.userId, companyId: current.company_id, action: "user.updated", entityType: "managed_user", entityId: id, metadata: { companyIds } });
   revalidatePlatform();
-  return { ok: true, id, ...(passwordForNewAssignments ? { temporaryPassword: passwordForNewAssignments, message: "Asignaciones actualizadas. Se generó una nueva contraseña temporal para mantener el mismo acceso en las empresas añadidas." } : {}) };
+  return {
+    ok: true,
+    id,
+    ...(passwordForNewAssignments
+      ? {
+          temporaryPassword: passwordForNewAssignments,
+          loginUrl: remoteLoginUrl(assignedCompanies[0]),
+          message: "Asignaciones actualizadas. Se generó una nueva contraseña temporal para mantener el mismo acceso en las empresas añadidas.",
+        }
+      : {}),
+  };
 }
 
 export async function archiveManagedUser(id: string): Promise<PlatformActionResult> {
@@ -447,13 +489,17 @@ export async function resetManagedUserPassword(id: string): Promise<PlatformActi
       if (row.auth_user_id && company) {
         const result = await remoteClient(company).auth.admin.updateUserById(row.auth_user_id, { password });
         if (result.error) return { ok: false, error: result.error.message };
+        await verifyRemoteLogin(company, row.email, password);
       }
     }
   } catch (error) { return { ok: false, error: error instanceof Error ? error.message : "No se pudo restablecer la contraseña." }; }
   await group.admin.from("managed_users").update({ last_password_reset_at: new Date().toISOString() }).eq("identity_id", group.current.identity_id ?? group.current.id);
   await audit({ actorId: auth.userId, companyId: group.current.company_id, action: "user.password_reset", entityType: "managed_user", entityId: id, metadata: { companyIds: group.rows.map((row) => row.company_id) } });
   revalidatePlatform();
-  return { ok: true, id, temporaryPassword: password, message: "Contraseña restablecida. Solo se muestra ahora." };
+  const currentCompany = Array.isArray(group.current.managed_companies)
+    ? group.current.managed_companies[0]
+    : group.current.managed_companies;
+  return { ok: true, id, temporaryPassword: password, loginUrl: remoteLoginUrl(currentCompany), message: "Contraseña restablecida. Solo se muestra ahora." };
 }
 
 export async function checkManagedCompanyHealth(id: string): Promise<PlatformActionResult> {
