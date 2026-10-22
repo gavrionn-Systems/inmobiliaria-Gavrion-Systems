@@ -40,7 +40,10 @@ type Company = {
 
 type ManagedUser = {
   id: string;
+  identity_id: string;
   company_id: string;
+  company_ids: string[];
+  company_names: string[];
   full_name: string;
   email: string;
   role: "company_admin" | "designer" | "agente";
@@ -147,7 +150,7 @@ export default function PlatformControlPanel({ companies, users, runs, audit, re
 
   async function saveUser(formData: FormData) {
     const input = {
-      companyId: String(formData.get("companyId") ?? ""),
+      companyIds: formData.getAll("companyIds").map(String),
       fullName: String(formData.get("fullName") ?? ""),
       username: String(formData.get("username") ?? ""),
       role: String(formData.get("role") ?? "agente"),
@@ -294,11 +297,10 @@ export default function PlatformControlPanel({ companies, users, runs, audit, re
       {section === "users" ? (
         <div className="grid gap-6 xl:grid-cols-[minmax(0,1fr)_24rem]">
           <section className="space-y-4">
-            <div><h2 className="font-headline-md text-on-surface">Usuarios por empresa</h2><p className="text-sm text-secondary">Administre administradores, diseñadores y agentes de cada instalación.</p></div>
+            <div><h2 className="font-headline-md text-on-surface">Usuarios y asignaciones</h2><p className="text-sm text-secondary">Administre administradores, diseñadores y agentes. Un diseñador puede trabajar en varias empresas.</p></div>
             {users.length === 0 ? <Empty text="Todavía no hay usuarios registrados." /> : users.map((user) => {
-              const company = companies.find((item) => item.id === user.company_id);
               return <article key={user.id} className="flex flex-wrap items-center justify-between gap-4 rounded-xl border border-outline-variant bg-surface-container-low p-5">
-                <div><h3 className="font-label-md font-semibold text-on-surface">{user.full_name}</h3><p className="text-sm text-secondary">Usuario: {isInternalUserEmail(user.email) ? usernameFromStoredEmail(user.email) : user.email} · {company?.name ?? "Empresa eliminada"}</p><span className="mt-2 inline-flex rounded-full bg-surface-container-highest px-2.5 py-1 text-xs text-secondary">{roleLabels[user.role]} · {user.is_active ? "Activo" : "Bloqueado"}</span></div>
+                <div><h3 className="font-label-md font-semibold text-on-surface">{user.full_name}</h3><p className="text-sm text-secondary">Usuario: {isInternalUserEmail(user.email) ? usernameFromStoredEmail(user.email) : user.email} · Empresas: {user.company_names.join(", ")}</p><span className="mt-2 inline-flex rounded-full bg-surface-container-highest px-2.5 py-1 text-xs text-secondary">{roleLabels[user.role]} · {user.is_active ? "Activo" : "Bloqueado"}</span></div>
                 <div className="flex flex-wrap gap-2"><button type="button" onClick={() => setEditingUser(user)} className="rounded-lg border border-outline-variant px-3 py-2 text-sm text-secondary hover:bg-surface-container-high">Editar</button><button type="button" onClick={() => resetUser(user.id)} className="rounded-lg border border-outline-variant px-3 py-2 text-sm text-secondary hover:bg-surface-container-high">Restablecer contraseña</button>{user.is_active ? <button type="button" onClick={() => archiveUser(user.id)} className="rounded-lg border border-error px-3 py-2 text-sm text-error hover:bg-error-container">Bloquear</button> : null}<button type="button" onClick={() => deleteUser(user.id)} className="rounded-lg border border-error px-3 py-2 text-sm text-error hover:bg-error-container">Eliminar</button></div>
               </article>;
             })}
@@ -424,9 +426,16 @@ function CompanyForm({ company, onSubmit, onCancel }: { company: Company | null;
 }
 
 function UserForm({ user, companies, onSubmit, onCancel }: { user: ManagedUser | null; companies: Company[]; onSubmit: (formData: FormData) => Promise<void>; onCancel: () => void }) {
+  const assignedCompanyIds = user?.company_ids?.length ? user.company_ids : user?.company_id ? [user.company_id] : companies[0]?.id ? [companies[0].id] : [];
   return <form action={onSubmit} className="space-y-4 rounded-xl border border-outline-variant bg-surface-container-low p-5">
     <h2 className="font-headline-md text-on-surface">{user ? "Editar usuario" : "Nueva cuenta"}</h2>
-    <label className="block text-sm text-secondary">Empresa<select name="companyId" defaultValue={user?.company_id ?? companies[0]?.id ?? ""} disabled={Boolean(user)} required className="mt-1 w-full rounded-lg border border-outline-variant bg-surface px-3 py-2 text-on-surface"><option value="">Seleccione una empresa</option>{companies.map((company) => <option key={company.id} value={company.id}>{company.name}</option>)}</select></label>
+    <fieldset className="space-y-2">
+      <legend className="block text-sm text-secondary">Empresas asignadas</legend>
+      <div className="grid gap-2 rounded-lg border border-outline-variant bg-surface p-3">
+        {companies.map((company) => <label key={company.id} className="flex items-center gap-2 text-sm text-on-surface"><input type="checkbox" name="companyIds" value={company.id} defaultChecked={assignedCompanyIds.includes(company.id)} className="h-4 w-4 accent-[var(--color-primary)]" />{company.name}</label>)}
+      </div>
+      <p className="text-xs text-secondary">Solo el perfil <strong>Diseñador</strong> puede tener más de una empresa. Al agregar una empresa a un diseñador existente se generará una nueva contraseña temporal para mantener el mismo acceso en todas sus empresas.</p>
+    </fieldset>
     <Field name="fullName" label="Nombre completo" defaultValue={user?.full_name} required /><Field name="username" label="Usuario" defaultValue={user ? (isInternalUserEmail(user.email) ? usernameFromStoredEmail(user.email) : user.email.split("@")[0]) : ""} required />
     {!user ? <>
       <Field name="temporaryPassword" label="Contraseña temporal (opcional)" type="password" />
@@ -434,7 +443,7 @@ function UserForm({ user, companies, onSubmit, onCancel }: { user: ManagedUser |
     </> : null}
     <label className="block text-sm text-secondary">Rol<select name="role" defaultValue={user?.role ?? "company_admin"} className="mt-1 w-full rounded-lg border border-outline-variant bg-surface px-3 py-2 text-on-surface"><option value="company_admin">Administrador de empresa</option><option value="designer">Diseñador</option><option value="agente">Agente</option></select></label>
     <label className="block text-sm text-secondary">Notas<textarea name="notes" defaultValue={user?.notes} className="mt-1 min-h-20 w-full rounded-lg border border-outline-variant bg-surface px-3 py-2 text-on-surface" /></label>
-    <p className="text-xs text-secondary">No se necesita correo electrónico. El usuario iniciará sesión con este nombre de usuario y la contraseña. La contraseña se muestra una sola vez después de crear o restablecer la cuenta.</p>
+    <p className="text-xs text-secondary">No se necesita correo electrónico. El usuario iniciará sesión con este nombre de usuario y la contraseña. Las tildes se normalizan automáticamente (por ejemplo, <span className="font-medium">diseñador</span> se convierte en <span className="font-medium">disenador</span>). La contraseña se muestra una sola vez después de crear o restablecer la cuenta.</p>
     <div className="flex gap-2"><button className="rounded-lg bg-primary px-4 py-2 font-semibold text-on-primary" type="submit">Guardar usuario</button>{user ? <button className="rounded-lg border border-outline-variant px-4 py-2 text-secondary" type="button" onClick={onCancel}>Cancelar</button> : null}</div>
   </form>;
 }
