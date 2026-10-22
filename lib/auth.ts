@@ -42,6 +42,8 @@ function parseAssignedCompanies(value: unknown): AssignedCompany[] {
     .map((item) => ({
       id: typeof item.id === "string" ? item.id : "",
       name: typeof item.name === "string" ? item.name.trim() : "",
+      publicUrl: typeof item.publicUrl === "string" ? item.publicUrl.trim() : "",
+      deploymentUrl: typeof item.deploymentUrl === "string" ? item.deploymentUrl.trim() : "",
       url: typeof item.url === "string" ? item.url.trim() : "",
       adminPath: typeof item.adminPath === "string" ? item.adminPath.trim() : "",
     }))

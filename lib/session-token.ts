@@ -16,6 +16,11 @@ export type SessionPayload = {
 export type AssignedCompany = {
   id: string;
   name: string;
+  /** URL pública que verá el cliente, normalmente el dominio personalizado. */
+  publicUrl?: string;
+  /** URL técnica de Vercel, útil como respaldo y durante el montaje. */
+  deploymentUrl?: string;
+  /** Compatibilidad con sesiones creadas antes de separar ambas URL. */
   url: string;
   /** Coincide con ADMIN_PANEL_PATH de la instalación de la empresa. */
   adminPath?: string;

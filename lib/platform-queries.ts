@@ -132,6 +132,8 @@ async function syncDesignerAssignments(
       .map((company) => ({
         id: company.id,
         name: company.name,
+        publicUrl: company.public_url?.trim() || "",
+        deploymentUrl: company.deployment_url?.trim() || "",
         url: company.public_url?.trim() || company.deployment_url?.trim() || "",
         adminPath: company.slug?.trim() || "",
       }));
