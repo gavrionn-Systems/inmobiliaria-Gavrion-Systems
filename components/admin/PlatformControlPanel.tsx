@@ -409,7 +409,8 @@ function CompanyForm({ company, onSubmit, onCancel }: { company: Company | null;
   return <form action={onSubmit} className="space-y-4 rounded-xl border border-outline-variant bg-surface-container-low p-5">
     <h2 className="font-headline-md text-on-surface">{company ? "Editar empresa" : "Nueva empresa"}</h2>
     <Field name="name" label="Nombre" defaultValue={company?.name} required />
-    <Field name="slug" label="Identificador" defaultValue={company?.slug} required />
+    <Field name="slug" label="Identificador del panel" defaultValue={company?.slug} required />
+    <p className="-mt-3 text-xs text-secondary">Debe ser exactamente el mismo valor de <code>ADMIN_PANEL_PATH</code> configurado en Vercel para esta empresa. Así el diseñador podrá abrir su panel desde “Mis sitios”.</p>
     <Field name="publicUrl" label="URL pública" type="url" defaultValue={company?.public_url} />
     <Field name="deploymentUrl" label="URL de Vercel" type="url" defaultValue={company?.deployment_url} />
     <Field name="supabaseUrl" label="URL de Supabase" type="url" defaultValue={company?.supabase_url} />

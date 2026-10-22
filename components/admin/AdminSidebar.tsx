@@ -12,6 +12,12 @@ type NavItem = {
   icon?: string;
 };
 
+type SiteContext = {
+  name: string;
+  url: string;
+  assignedCompanies: Array<{ id: string; name: string; url: string }>;
+};
+
 function isActive(pathname: string, item: NavItem) {
   const secretRouteSuffix = item.href.replace(/^\/admin/, "") || "/";
   return item.key === "dashboard"
@@ -44,7 +50,7 @@ export default function AdminSidebar({
   roleLabel?: string;
   loginPath: string;
   panelPath: string;
-  siteContext?: { name: string; url: string };
+  siteContext?: SiteContext;
 }) {
   const pathname = usePathname();
   const visibleHref = (href: string) => `${panelPath}${href.replace(/^\/admin/, "")}`;
@@ -109,6 +115,33 @@ export default function AdminSidebar({
           <p className="mt-1 truncate text-xs text-surface-variant" title={siteContext.url}>
             {siteContext.url}
           </p>
+          {siteContext.assignedCompanies.length > 1 ? (
+            <div className="mt-3 border-t border-white/10 pt-3">
+              <p className="text-[11px] font-semibold uppercase tracking-[0.12em] text-surface-variant">
+                Empresas asignadas
+              </p>
+              <div className="mt-2 flex flex-col gap-1">
+                {siteContext.assignedCompanies.map((company) => (
+                  company.url ? (
+                    <a
+                      key={company.id}
+                      href={company.url}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="truncate rounded px-1 py-1 text-xs text-surface-variant hover:bg-white/10 hover:text-surface"
+                      title={`Abrir ${company.name}`}
+                    >
+                      {company.name}
+                    </a>
+                  ) : (
+                    <span key={company.id} className="truncate px-1 py-1 text-xs text-surface-variant">
+                      {company.name}
+                    </span>
+                  )
+                ))}
+              </div>
+            </div>
+          ) : null}
         </div>
       ) : null}
 
