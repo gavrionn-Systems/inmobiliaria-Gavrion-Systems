@@ -164,7 +164,7 @@ function remoteRole(role: "company_admin" | "designer" | "agente") {
 
 function generatedPassword() { return `M2-${randomBytes(12).toString("base64url")}`; }
 
-function assignedCompanyMetadata(companies: Array<{ id: string; name: string; public_url?: string | null; deployment_url?: string | null }>) {
+function assignedCompanyMetadata(companies: Array<{ id: string; name: string; slug?: string | null; public_url?: string | null; deployment_url?: string | null }>) {
   return companies.map((company) => ({
     id: company.id,
     name: company.name,
@@ -173,7 +173,7 @@ function assignedCompanyMetadata(companies: Array<{ id: string; name: string; pu
   }));
 }
 
-function remoteUserMetadata(fullName: string, username: string, companies: Array<{ id: string; name: string; public_url?: string | null; deployment_url?: string | null }>) {
+function remoteUserMetadata(fullName: string, username: string, companies: Array<{ id: string; name: string; slug?: string | null; public_url?: string | null; deployment_url?: string | null }>) {
   return {
     full_name: fullName,
     username,
