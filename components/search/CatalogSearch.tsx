@@ -6,7 +6,7 @@ import PriceRangeSlider from "@/components/PriceRangeSlider";
 import type { CatalogPriceBounds } from "@/lib/queries";
 import type { CatalogFilters } from "@/lib/catalog-params";
 import { hasActiveFilters } from "@/lib/catalog-params";
-import { LOCATION_MUNICIPALITIES, municipalitiesFor } from "@/lib/location-options";
+import { allMunicipalities, municipalitiesOf, type LocationOption } from "@/lib/location-catalog";
 
 const fieldCls =
   "w-full min-h-11 bg-surface rounded border border-outline-variant px-3 py-2.5 font-body-md text-body-md text-on-surface placeholder:text-on-surface-variant";
@@ -21,7 +21,7 @@ function parseFilterPrice(raw: string, fallback: number): number {
 
 type Props = {
   categories: { id: string; name: string }[];
-  locations: { id: string; name: string }[];
+  locations: LocationOption[];
   priceBounds: CatalogPriceBounds;
   filters: CatalogFilters;
   total?: number;
@@ -69,7 +69,7 @@ export default function CatalogSearch({
       // si cambia departamento, limpiar municipio si ya no pertenece
       if (next.ubi !== undefined && next.muni === undefined) {
         const deptName = locations.find((l) => l.id === (next.ubi as string))?.name ?? "";
-        const valid = deptName ? municipalitiesFor(deptName) : [];
+        const valid = deptName ? municipalitiesOf(locations, deptName) : [];
         if (valid.length && merged.muni && !valid.includes(merged.muni)) {
           merged.muni = "";
         }
@@ -95,7 +95,7 @@ export default function CatalogSearch({
         router.push(href);
       }
     },
-    [filters, q, pathname, router, isCatalog]
+    [filters, q, pathname, router, isCatalog, locations]
   );
 
   // debounce for catalog q — configurable desde Admin (perf: INP)
@@ -136,10 +136,8 @@ export default function CatalogSearch({
   const selectCls = isCatalog ? fieldClsCatalog : fieldCls;
   const deptNameForMuni = locations.find((l) => l.id === filters.ubi)?.name ?? "";
   const muniOptions = deptNameForMuni
-    ? municipalitiesFor(deptNameForMuni)
-    : ([...new Set(Object.values(LOCATION_MUNICIPALITIES).flat())].sort((a, b) =>
-        a.localeCompare(b, "es"),
-      ) as string[]);
+    ? municipalitiesOf(locations, deptNameForMuni)
+    : allMunicipalities(locations);
 
   function renderOperationSelect() {
     return (
@@ -208,7 +206,7 @@ export default function CatalogSearch({
           className={selectCls}
         >
           <option value="">Todos</option>
-          {muniOptions.slice(0, 120).map((m) => (
+          {muniOptions.map((m) => (
             <option key={`${deptNameForMuni || "all"}-${m}`} value={m}>
               {m}
             </option>
