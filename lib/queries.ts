@@ -325,14 +325,49 @@ export async function getCategoriesPublic() {
   return data;
 }
 
-export async function getLocationsPublic() {
+export type LocationRow = {
+  id: string;
+  name: string;
+  slug: string;
+  country: string;
+  /** Nombres de municipios (tabla `municipalities`), ordenados. */
+  municipalities: string[];
+};
+
+/** Departamentos con sus municipios. Si la tabla `municipalities` todavía no
+ *  existe (migración 20261023100000 sin aplicar) devuelve los departamentos
+ *  con `municipalities: []` y el front usa el catálogo estático. */
+export async function getLocationsPublic(): Promise<LocationRow[]> {
   const supabase = createPublicClient();
   if (!supabase) return [];
+
+  const withMunis = await supabase
+    .from("locations")
+    .select("id, name, slug, country, municipalities(name)")
+    .in("name", LOCATION_OPTIONS)
+    .order("name");
+
+  if (!withMunis.error) {
+    type Row = Omit<LocationRow, "municipalities"> & {
+      municipalities: { name: string }[] | null;
+    };
+    return ((withMunis.data ?? []) as unknown as Row[]).map((l) => ({
+      id: l.id,
+      name: l.name,
+      slug: l.slug,
+      country: l.country,
+      municipalities: (l.municipalities ?? [])
+        .map((m) => m.name)
+        .sort((a, b) => a.localeCompare(b, "es")),
+    }));
+  }
+
+  console.warn("[queries] municipalities no disponible, se usa catálogo estático", withMunis.error);
   const { data, error } = await supabase
     .from("locations")
     .select("id, name, slug, country")
     .in("name", LOCATION_OPTIONS)
     .order("name");
   if (error) throw error;
-  return data;
+  return (data ?? []).map((l) => ({ ...l, municipalities: [] }));
 }
