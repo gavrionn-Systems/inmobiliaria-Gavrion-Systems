@@ -1,11 +1,17 @@
 "use client";
 
 import { useRouter } from "next/navigation";
-import { useTransition, useState } from "react";
+import { useEffect, useTransition, useState } from "react";
 import PropertyImageUploader from "@/components/admin/PropertyImageUploader";
 import { saveProperty } from "@/lib/actions";
-import { buildCode, slugify, type PropertyInput, LOCATION_OPTIONS } from "@/lib/property-schema";
-import { LOCATION_MUNICIPALITIES, municipalitiesFor } from "@/lib/location-options";
+import { loadLocationCatalog } from "@/lib/catalog-actions";
+import {
+  allMunicipalities,
+  departmentNames,
+  municipalitiesOf,
+  type LocationOption,
+} from "@/lib/location-catalog";
+import { buildCode, slugify, type PropertyInput } from "@/lib/property-schema";
 
 const FEATURES: { icon: string; label: string }[] = [
   { icon: "pool", label: "Piscina" },
@@ -30,14 +36,33 @@ interface FormState extends PropertyInput {
 
 export default function PropertyForm({
   categories,
+  locations: locationsProp,
   initial,
 }: {
   categories: CategoryOption[];
+  /** Departamentos + municipios desde la BD. Si la página no los pasa,
+   *  el formulario los pide al servidor al montarse. */
+  locations?: LocationOption[];
   initial?: Partial<FormState>;
 }) {
   const router = useRouter();
   const [pending, startTransition] = useTransition();
   const [error, setError] = useState<string | null>(null);
+  const [fetchedLocations, setFetchedLocations] = useState<LocationOption[] | undefined>(undefined);
+  const locations = locationsProp ?? fetchedLocations;
+
+  useEffect(() => {
+    if (locationsProp) return;
+    let cancelled = false;
+    loadLocationCatalog().then((rows) => {
+      if (!cancelled) setFetchedLocations(rows);
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [locationsProp]);
+
+  const deptOptions = departmentNames(locations);
 
   const [form, setForm] = useState<FormState>({
     id: initial?.id,
@@ -69,6 +94,10 @@ export default function PropertyForm({
     setForm((f) => ({ ...f, [key]: value }));
 
   const isEdit = Boolean(initial?.id);
+  // Con departamento: sus municipios. Sin departamento: todos (BD o estático).
+  const muniOptions = form.location_name
+    ? municipalitiesOf(locations, form.location_name)
+    : allMunicipalities(locations);
   const mainImage = form.main_image_url
     ? [{ url: form.main_image_url, alt: "" }]
     : [];
@@ -272,7 +301,7 @@ export default function PropertyForm({
               onChange={(e) => {
                 const dept = e.target.value;
                 setForm((f) => {
-                  const validMunis = municipalitiesFor(dept);
+                  const validMunis = municipalitiesOf(locations, dept);
                   const keepMuni = validMunis.includes(f.municipality) ? f.municipality : "";
                   return { ...f, location_name: dept, municipality: keepMuni };
                 });
@@ -280,12 +309,12 @@ export default function PropertyForm({
               className={inputCls}
             >
               <option value="">Seleccione departamento</option>
-              {form.location_name && !(LOCATION_OPTIONS as readonly string[]).includes(form.location_name) && (
+              {form.location_name && !deptOptions.includes(form.location_name) && (
                 <option value={form.location_name}>
                   {form.location_name} (Ubicación actual)
                 </option>
               )}
-              {LOCATION_OPTIONS.map((dept) => (
+              {deptOptions.map((dept) => (
                 <option key={dept} value={dept}>
                   {dept}
                 </option>
@@ -300,19 +329,12 @@ export default function PropertyForm({
               className={inputCls}
             >
               <option value="">Seleccione municipio (opcional)</option>
-              {form.location_name && municipalitiesFor(form.location_name).length > 0
-                ? municipalitiesFor(form.location_name).map((m) => (
-                    <option key={`${form.location_name}-${m}`} value={m}>
-                      {m}
-                    </option>
-                  ))
-                : // sin departamento, mostrar todos ordenados (deduplicados)
-                  ([...new Set(Object.values(LOCATION_MUNICIPALITIES).flat())].sort((a, b) => a.localeCompare(b, "es")) as string[]).slice(0, 80).map((m, idx) => (
-                    <option key={`${m}-${idx}`} value={m}>
-                      {m}
-                    </option>
-                  ))}
-              {form.municipality && ! municipalitiesFor(form.location_name).includes(form.municipality) && ! Object.values(LOCATION_MUNICIPALITIES).flat().includes(form.municipality) && (
+              {muniOptions.map((m) => (
+                <option key={`${form.location_name || "all"}-${m}`} value={m}>
+                  {m}
+                </option>
+              ))}
+              {form.municipality && !muniOptions.includes(form.municipality) && (
                 <option value={form.municipality}>{form.municipality} (actual)</option>
               )}
             </select>
