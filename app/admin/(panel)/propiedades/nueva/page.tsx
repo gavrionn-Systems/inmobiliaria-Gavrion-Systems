@@ -1,7 +1,7 @@
 import { redirect } from "next/navigation";
 import PropertyForm from "@/components/admin/PropertyForm";
 import { getSession } from "@/lib/auth";
-import { getCategoriesPublic } from "@/lib/queries";
+import { getCategoriesPublic, getLocationsPublic } from "@/lib/queries";
 
 export const metadata = {
   title: "Nueva Propiedad · Admin",
@@ -13,7 +13,10 @@ export default async function NewPropertyPage() {
     redirect("/admin/propiedades?error=forbidden");
   }
 
-  const categories = await getCategoriesPublic();
+  const [categories, locations] = await Promise.all([
+    getCategoriesPublic(),
+    getLocationsPublic(),
+  ]);
 
   return (
     <>
@@ -27,7 +30,7 @@ export default async function NewPropertyPage() {
         </p>
       </header>
 
-      <PropertyForm categories={categories} />
+      <PropertyForm categories={categories} locations={locations} />
     </>
   );
 }
