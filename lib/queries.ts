@@ -256,3 +256,118 @@ export async function getCatalogPriceBounds(): Promise<CatalogPriceBounds> {
 }
 
 export async function getFeaturedProperties(limit?: number) {
+  const supabase = createPublicClient();
+  if (!supabase) return [];
+  const effectiveLimit = limit ?? (await getFeaturedLimit());
+  const { data, error } = await supabase
+    .from("properties")
+    .select(PUBLIC_SELECT)
+    .eq("status", "publicada")
+    .eq("is_featured", true)
+    .order("published_at", { ascending: false })
+    .limit(effectiveLimit);
+  if (error) throw error;
+  return data as unknown as PublicProperty[];
+}
+
+export async function getPropertyBySlug(slug: string) {
+  const supabase = createPublicClient();
+  if (!supabase) return null;
+  const { data, error } = await supabase
+    .from("properties")
+    .select(PUBLIC_SELECT)
+    .eq("status", "publicada")
+    .eq("slug", slug)
+    .single();
+  if (error) {
+    // PGRST116 = cero filas: la propiedad no existe (404 legítimo).
+    // Cualquier otro error (red, esquema, RLS) se propaga en vez de
+    // disfrazarse de "no encontrada".
+    if (error.code === "PGRST116") return null;
+    throw error;
+  }
+  return data as unknown as PublicProperty;
+}
+
+export async function getRelatedProperties(
+  locationId: string | null,
+  categoryId: string | null,
+  excludeId: string,
+  limit?: number
+) {
+  const effectiveLimit = limit ?? (await getRelatedLimit());
+  if (effectiveLimit === 0) return [];
+  const supabase = createPublicClient();
+  if (!supabase) return [];
+  let query = supabase
+    .from("properties")
+    .select(PUBLIC_SELECT)
+    .eq("status", "publicada")
+    .neq("id", excludeId)
+    .limit(effectiveLimit);
+
+  if (locationId) query = query.eq("location_id", locationId);
+  else if (categoryId) query = query.eq("category_id", categoryId);
+
+  const { data, error } = await query;
+  if (error) throw error;
+  return (data ?? []) as unknown as PublicProperty[];
+}
+
+export async function getCategoriesPublic() {
+  const supabase = createPublicClient();
+  if (!supabase) return [];
+  const { data, error } = await supabase
+    .from("categories")
+    .select("id, name, slug, icon")
+    .order("name");
+  if (error) throw error;
+  return data;
+}
+
+export type LocationRow = {
+  id: string;
+  name: string;
+  slug: string;
+  country: string;
+  /** Nombres de municipios (tabla `municipalities`), ordenados. */
+  municipalities: string[];
+};
+
+/** Departamentos con sus municipios. Si la tabla `municipalities` todavía no
+ *  existe (migración 20261023100000 sin aplicar) devuelve los departamentos
+ *  con `municipalities: []` y el front usa el catálogo estático. */
+export async function getLocationsPublic(): Promise<LocationRow[]> {
+  const supabase = createPublicClient();
+  if (!supabase) return [];
+
+  const withMunis = await supabase
+    .from("locations")
+    .select("id, name, slug, country, municipalities(name)")
+    .in("name", LOCATION_OPTIONS)
+    .order("name");
+
+  if (!withMunis.error) {
+    type Row = Omit<LocationRow, "municipalities"> & {
+      municipalities: { name: string }[] | null;
+    };
+    return ((withMunis.data ?? []) as unknown as Row[]).map((l) => ({
+      id: l.id,
+      name: l.name,
+      slug: l.slug,
+      country: l.country,
+      municipalities: (l.municipalities ?? [])
+        .map((m) => m.name)
+        .sort((a, b) => a.localeCompare(b, "es")),
+    }));
+  }
+
+  console.warn("[queries] municipalities no disponible, se usa catálogo estático", withMunis.error);
+  const { data, error } = await supabase
+    .from("locations")
+    .select("id, name, slug, country")
+    .in("name", LOCATION_OPTIONS)
+    .order("name");
+  if (error) throw error;
+  return (data ?? []).map((l) => ({ ...l, municipalities: [] }));
+}
