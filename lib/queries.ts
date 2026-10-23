@@ -1,7 +1,7 @@
 import "server-only";
 import { images, type PropertySummary } from "@/lib/properties";
 import { formatPrice } from "@/lib/format";
-import { MAX_FEATURED_PROPERTIES, LOCATION_OPTIONS } from "@/lib/property-schema";
+import { MAX_FEATURED_PROPERTIES } from "@/lib/property-schema";
 import { createPublicClient } from "@/lib/supabase/public";
 
 export type PublicProperty = {
@@ -344,7 +344,6 @@ export async function getLocationsPublic(): Promise<LocationRow[]> {
   const withMunis = await supabase
     .from("locations")
     .select("id, name, slug, country, municipalities(name)")
-    .in("name", LOCATION_OPTIONS)
     .order("name");
 
   if (!withMunis.error) {
@@ -366,7 +365,6 @@ export async function getLocationsPublic(): Promise<LocationRow[]> {
   const { data, error } = await supabase
     .from("locations")
     .select("id, name, slug, country")
-    .in("name", LOCATION_OPTIONS)
     .order("name");
   if (error) throw error;
   return (data ?? []).map((l) => ({ ...l, municipalities: [] }));
