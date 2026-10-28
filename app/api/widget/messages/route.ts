@@ -6,6 +6,7 @@ import { getSiteSettings } from "@/lib/site-settings";
 import { createAdminClient } from "@/lib/supabase/admin";
 
 export const runtime = "nodejs";
+export const maxDuration = 60;
 
 function cors(origin: string | null) {
   return {
