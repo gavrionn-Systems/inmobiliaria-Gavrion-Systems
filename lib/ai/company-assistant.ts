@@ -75,31 +75,77 @@ export async function createCompanyReply(
 }
 
 async function callGemini(system: string, prompt: string) {
-  const model = (process.env.GEMINI_MODEL || "gemini-2.0-flash")
+  const model = (process.env.GEMINI_MODEL || "gemini-3.6-flash")
     .trim()
     .replace(/^models\//i, "");
-  const response = await fetch(
-    `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent`,
-    {
-      method: "POST",
-      headers: {
-        "x-goog-api-key": process.env.GEMINI_API_KEY ?? "",
-        "content-type": "application/json",
-      },
-      body: JSON.stringify({
-        systemInstruction: { parts: [{ text: system }] },
-        contents: [{ role: "user", parts: [{ text: prompt }] }],
-        generationConfig: { maxOutputTokens: 360, responseMimeType: "application/json" },
-      }),
-      signal: AbortSignal.timeout(15_000),
+  const endpoint =
+    `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent`;
+  const requestBody = JSON.stringify({
+    systemInstruction: { parts: [{ text: system }] },
+    contents: [{ role: "user", parts: [{ text: prompt }] }],
+    generationConfig: {
+      maxOutputTokens: 1024,
+      responseMimeType: "application/json",
     },
-  );
-  const body = await response.json();
-  if (!response.ok) throw new Error(body.error?.message || `Gemini respondió ${response.status}`);
-  const text = body.candidates?.[0]?.content?.parts
-    ?.map((part: { text?: string }) => part.text || "")
-    .join("");
-  return parseReply(text);
+  });
+
+  // Gemini puede responder temporalmente con 429/503 cuando hay saturación.
+  // Se reintenta una vez y cada intento tiene margen suficiente para completar.
+  const maxAttempts = 2;
+  let lastError: unknown;
+
+  for (let attempt = 0; attempt < maxAttempts; attempt += 1) {
+    try {
+      const response = await fetch(endpoint, {
+        method: "POST",
+        headers: {
+          "x-goog-api-key": process.env.GEMINI_API_KEY ?? "",
+          "content-type": "application/json",
+        },
+        body: requestBody,
+        signal: AbortSignal.timeout(25_000),
+      });
+      const body = await response.json().catch(() => ({}));
+
+      if (!response.ok) {
+        const error = new Error(
+          body.error?.message || `Gemini respondió ${response.status}`,
+        );
+        if (attempt < maxAttempts - 1 && isRetryableGeminiStatus(response.status)) {
+          await wait(1_000);
+          continue;
+        }
+        throw error;
+      }
+
+      const text = body.candidates?.[0]?.content?.parts
+        ?.map((part: { text?: string }) => part.text || "")
+        .join("");
+      return parseReply(text);
+    } catch (error) {
+      lastError = error;
+      if (attempt < maxAttempts - 1 && isRetryableGeminiError(error)) {
+        await wait(1_000);
+        continue;
+      }
+      throw error;
+    }
+  }
+
+  throw lastError instanceof Error ? lastError : new Error("Gemini falló");
+}
+
+function isRetryableGeminiStatus(status: number) {
+  return status === 429 || status === 500 || status === 502 || status === 503 || status === 504;
+}
+
+function isRetryableGeminiError(error: unknown) {
+  if (!(error instanceof Error)) return false;
+  return error.name === "AbortError" || error.name === "TimeoutError" || /timeout|aborted/i.test(error.message);
+}
+
+function wait(milliseconds: number) {
+  return new Promise((resolve) => setTimeout(resolve, milliseconds));
 }
 
 async function callOpenAI(visitorId: string, system: string, prompt: string) {
@@ -115,7 +161,7 @@ async function callOpenAI(visitorId: string, system: string, prompt: string) {
       safety_identifier: visitorId.slice(0, 64),
       instructions: system,
       input: prompt,
-      max_output_tokens: 360,
+      max_output_tokens: 1024,
     }),
     signal: AbortSignal.timeout(15_000),
   });
