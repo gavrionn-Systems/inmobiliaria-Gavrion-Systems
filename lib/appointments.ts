@@ -69,7 +69,7 @@ export async function findNextAvailableSlots(
   const schedule = await getSiteSchedule();
   const dur = schedule.slot_durations.includes(duration) ? duration : schedule.slot_duration_default;
   const result: string[] = [];
-  let cursor = new Date(`${fromDateStr}T12:00:00Z`);
+  const cursor = new Date(`${fromDateStr}T12:00:00Z`);
   for (let d = 0; d < 14 && result.length < limit; d++) {
     const dateStr = cursor.toISOString().slice(0, 10);
     const { slots } = await getAvailability(dateStr, dur);
