@@ -35,7 +35,13 @@ export default function Header({
   const firstLinkRef = useRef<HTMLAnchorElement>(null);
 
   useEffect(() => {
-    setOpen(false);
+    let cancelled = false;
+    queueMicrotask(() => {
+      if (!cancelled) setOpen(false);
+    });
+    return () => {
+      cancelled = true;
+    };
   }, [pathname]);
 
   useEffect(() => {

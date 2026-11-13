@@ -59,8 +59,11 @@ export default function AppointmentCalendar({
   // Fetch slots for selectedDate
   useEffect(() => {
     let cancelled = false;
-    setLoading(true);
-    setError(null);
+    queueMicrotask(() => {
+      if (cancelled) return;
+      setLoading(true);
+      setError(null);
+    });
     fetch(`/api/appointments/availability?date=${selectedDate}&duration=${duration}`, { cache: "no-store" })
       .then(async (r) => {
         if (!r.ok) throw new Error((await r.json()).error ?? "No se pudo cargar");
