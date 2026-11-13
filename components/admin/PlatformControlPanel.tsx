@@ -24,6 +24,7 @@ type Company = {
   id: string;
   name: string;
   slug: string;
+  admin_panel_path: string;
   public_url: string;
   deployment_url: string;
   supabase_url: string;
@@ -108,7 +109,9 @@ export default function PlatformControlPanel({ companies, users, runs, audit, re
   useEffect(() => {
     if (section !== "chatbox" || !chatboxCompanyId) return;
     let cancelled = false;
-    setChatboxLoading(true);
+    queueMicrotask(() => {
+      if (!cancelled) setChatboxLoading(true);
+    });
     void getManagedCompanyChatbox(chatboxCompanyId).then((result) => {
       if (cancelled) return;
       if (result.ok) setChatboxSettings(result.settings);
@@ -125,6 +128,7 @@ export default function PlatformControlPanel({ companies, users, runs, audit, re
     const input = {
       name: String(formData.get("name") ?? ""),
       slug: String(formData.get("slug") ?? ""),
+      adminPanelPath: String(formData.get("adminPanelPath") ?? ""),
       publicUrl: String(formData.get("publicUrl") ?? ""),
       deploymentUrl: String(formData.get("deploymentUrl") ?? ""),
       supabaseUrl: String(formData.get("supabaseUrl") ?? ""),
@@ -409,8 +413,10 @@ function CompanyForm({ company, onSubmit, onCancel }: { company: Company | null;
   return <form action={onSubmit} className="space-y-4 rounded-xl border border-outline-variant bg-surface-container-low p-5">
     <h2 className="font-headline-md text-on-surface">{company ? "Editar empresa" : "Nueva empresa"}</h2>
     <Field name="name" label="Nombre" defaultValue={company?.name} required />
-    <Field name="slug" label="Identificador del panel" defaultValue={company?.slug} required />
-    <p className="-mt-3 text-xs text-secondary">Debe ser exactamente el mismo valor de <code>ADMIN_PANEL_PATH</code> configurado en Vercel para esta empresa. Así el diseñador podrá abrir su panel desde “Mis sitios”.</p>
+    <Field name="slug" label="Identificador de empresa" defaultValue={company?.slug} required />
+    <p className="-mt-3 text-xs text-secondary">Identificador interno estable, por ejemplo <code>m2bienesraiceshn</code>. Debe coincidir con <code>COMPANY_SLUG</code> del proyecto Vercel de esta empresa.</p>
+    <Field name="adminPanelPath" label="Ruta privada del panel" defaultValue={company?.admin_panel_path} required />
+    <p className="-mt-3 text-xs text-secondary">Debe coincidir exactamente con <code>ADMIN_PANEL_PATH</code> configurado en Vercel. Esta ruta abre el panel privado; no es el identificador de empresa.</p>
     <Field name="publicUrl" label="URL pública" type="url" defaultValue={company?.public_url} />
     <Field name="deploymentUrl" label="URL de Vercel" type="url" defaultValue={company?.deployment_url} />
     <Field name="supabaseUrl" label="URL de Supabase" type="url" defaultValue={company?.supabase_url} />
